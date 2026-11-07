@@ -1,16 +1,16 @@
 # Consensus in Real Systems
 
-How production systems use consensus. For each system: what it is, where agreement is needed, and how consensus provides it. The **design lesson** at the end of each section is the part to carry into your own designs.
+This page shows how production systems use consensus. For each system, it gives 4 items: what the system is, where it needs agreement, how consensus gives that agreement, and a **design lesson**. Use the design lessons in your own designs.
 
-## Three ways systems use consensus
+## 3 ways that systems use consensus
 
 | Style | The idea | Examples |
 |-------|----------|----------|
-| **Coordination service** | A separate, small cluster stores the critical facts; other systems ask it | etcd (Kubernetes), ZooKeeper (HBase, HDFS), Consul |
-| **Built-in metadata quorum** | The system runs its own consensus group only for metadata; the data itself is replicated more cheaply | Kafka (KRaft), TiDB's PD |
-| **Consensus per shard** | Every shard of data is its own consensus group, so every write goes through consensus | CockroachDB, TiKV, Spanner, DynamoDB |
+| **Coordination service** | A separate small cluster stores the critical facts. Other systems ask that cluster. | etcd for Kubernetes, ZooKeeper for HBase and HDFS, Consul |
+| **Built-in metadata quorum** | The system runs its own consensus group only for metadata. It replicates the data with a less expensive method. | Kafka with KRaft, the Placement Driver of TiDB |
+| **Consensus per shard** | Each shard of data is a separate consensus group. Thus each write goes through consensus. | CockroachDB, TiKV, Spanner, DynamoDB |
 
-Some systems deliberately keep consensus **off** the data path. They're covered in Part 4, because seeing why they avoid it teaches as much as seeing where it's used.
+Some systems keep consensus **off** the data path on purpose. Part 4 shows these systems. Their reasons teach as much as the systems that use consensus.
 
 ---
 
@@ -18,67 +18,72 @@ Some systems deliberately keep consensus **off** the data path. They're covered 
 
 ### etcd and Kubernetes
 
-**What it is.** Kubernetes runs containers across a cluster of machines. Its control plane (API server, scheduler, controller manager) is stateless. All cluster state, meaning every pod, node, deployment and secret, lives in **etcd**: a key-value store replicated with Raft, usually across 3 or 5 members.
+**What it is.** Kubernetes runs containers on a cluster of machines. Its control plane has an API server, a scheduler and a controller manager, and these components are stateless. All cluster state is in **etcd**: each pod, node, deployment and secret. etcd is a key-value store that Raft replicates, usually across 3 or 5 members.
 
-**Where consensus comes in.**
-- Cluster state needs a single truth. If two API servers saw different versions of a Deployment, controllers would fight over it.
-- Only one scheduler and one controller manager may be active at a time, even though several replicas run for high availability.
+**Where consensus is necessary.**
 
-**How it's used.**
-- **Every write is a Raft commit.** Each change through the API server is an etcd write committed by a majority.
-- **Optimistic concurrency.** Every object carries a `resourceVersion` (etcd's revision number), and updates are compare-and-swap on it: "update this pod only if it's still at version 4182". When two controllers race, one wins and the other re-reads and retries.
-- **Watches.** Controllers subscribe to changes from a given revision. Because the log is totally ordered, every watcher sees the same changes in the same order, with no gaps.
-- **Leader election.** Scheduler and controller-manager replicas compete to hold a `Lease` object, and the holder renews it every few seconds. If it stops renewing, another replica takes over once the lease expires. The Lease is just an etcd key, so "who is leader" is decided by consensus.
-- **When etcd loses quorum,** the cluster can't accept changes, but running containers keep running. Nodes don't need etcd to keep serving traffic.
+- The cluster state needs 1 single truth. If 2 API servers saw different versions of a Deployment, the controllers would fight over it.
+- Only 1 scheduler and 1 controller manager can be active at a time. But many replicas of each component run, for high availability.
 
-**Design lesson.** Keep the consensus store small, and make the data plane independent of it. etcd is sized in gigabytes, not terabytes: it holds metadata, not application data. A Kubernetes cluster rides out an etcd outage for a while precisely because nothing on the request path depends on it.
+**How Kubernetes uses it.**
+
+- **Each write is a Raft commit.** Each change through the API server is an etcd write that a majority commits.
+- **Optimistic concurrency.** Each object has a `resourceVersion`, which is the etcd revision number. An update is a compare-and-swap on that number. Example: "update this pod only if it is still at version 4182". When 2 controllers race, one controller wins. The other controller reads the object again and retries.
+- **Watches.** Controllers subscribe to changes from a given revision. The log has a total order, so each watcher sees the same changes in the same order, with no gaps.
+- **Leader election.** The replicas of the scheduler and the controller manager compete to hold a `Lease` object. The holder renews the lease every few seconds. If the holder stops the renewals, another replica takes over when the lease expires. The Lease is only an etcd key, so consensus decides which replica is the leader.
+- **When etcd loses quorum,** the cluster cannot accept changes. But the containers continue to run. Nodes do not need etcd to continue to serve traffic.
+
+**Design lesson.** Keep the consensus store small, and make the data plane independent of it. Engineers size etcd in gigabytes, not terabytes, because it holds metadata, not application data. A Kubernetes cluster can survive an etcd outage for some time, because no component on the request path needs etcd.
 
 ---
 
-### ZooKeeper (used by HBase, HDFS, and formerly Kafka)
+### ZooKeeper: used by HBase, HDFS and, before KRaft, Kafka
 
-**What it is.** A coordination service originally from Yahoo. It stores a tree of small nodes (**znodes**) replicated across an ensemble of 3 or 5 servers using **Zab** (ZooKeeper Atomic Broadcast), a leader-based protocol in the same family as Raft and Multi-Paxos. It isn't a database; it provides primitives you build coordination from.
+**What it is.** A coordination service that Yahoo first developed. It stores a tree of small nodes, which are named **znodes**. An ensemble of 3 or 5 servers replicates the tree with **Zab**, the ZooKeeper Atomic Broadcast protocol. Zab is a leader-based protocol in the same family as Raft and Multi-Paxos. ZooKeeper is not a database. It gives primitives, and you build coordination from them.
 
-**Where consensus comes in.** Every write is ordered by the leader and committed by a majority, so every client sees the same history.
+**Where consensus is necessary.** The leader puts each write in order, and a majority commits it. Thus each client sees the same history.
 
-**How it's used.** Three primitives do most of the work:
-- **Ephemeral znodes** disappear when the client's session ends (it stops heartbeating). That gives you ownership tied to a live process.
-- **Sequential znodes** get a monotonically increasing number appended. That gives you fair queues and locks: the lowest number holds the lock, and each waiter watches only the node just ahead of it, so a release doesn't wake everyone.
-- **Watches** notify a client when a znode changes.
+**How systems use it.** 3 primitives do most of the work:
+
+- **Ephemeral znodes** disappear when the session of the client ends, because the client stops its heartbeats. This gives ownership that is tied to a live process.
+- **Sequential znodes** get a number that always increases. This gives fair queues and fair locks. The lowest number holds the lock. Each waiter watches only the node just before it, so a release does not wake all the waiters.
+- **Watches** tell a client when a znode changes.
 
 Real uses:
-- **HBase:** the active master is whoever first creates the ephemeral `/hbase/master` node. Each RegionServer registers an ephemeral node too; when one vanishes, the master reassigns that server's regions.
-- **HDFS NameNode HA:** a failover controller next to each NameNode competes for an ephemeral lock znode, and the winner's NameNode becomes active. Separately, the NameNode's edit log is written to a quorum of **JournalNodes** (a majority must acknowledge) with epoch numbers, so an old active NameNode can't keep writing after it has been replaced. That is consensus-style quorums plus fencing on the data path.
-- **Kafka** stored its metadata in ZooKeeper until KRaft replaced it. **ClickHouse** replaced ZooKeeper with ClickHouse Keeper, a Raft-based service with a compatible API.
 
-**Design lesson.** Consensus systems expose a handful of primitives: sessions, ephemeral ownership, ordered sequence numbers and watches. Locks, leader election, membership and config distribution are all built from them. In your own designs, think in terms of the primitive you need, not "add ZooKeeper".
+- **HBase:** the first process that creates the ephemeral `/hbase/master` node becomes the active master. Each RegionServer also registers an ephemeral node. When that node disappears, the master gives the regions of that server to other servers.
+- **HDFS NameNode high availability (HA):** each NameNode has a failover controller near it. The failover controllers compete for an ephemeral lock znode, and the NameNode of the winner becomes active. Also, the NameNode writes its edit log to a quorum of **JournalNodes**, and a majority must acknowledge each write. The JournalNodes use epoch numbers. Thus an old active NameNode cannot continue to write after the system replaces it. This is a consensus-style quorum, plus fencing, on the data path.
+- **Kafka** stored its metadata in ZooKeeper until KRaft replaced it. **ClickHouse** replaced ZooKeeper with ClickHouse Keeper. ClickHouse Keeper is a Raft-based service with a compatible API.
+
+**Design lesson.** Consensus systems give a small set of primitives: sessions, ephemeral ownership, ordered sequence numbers and watches. You can build locks, leader election, membership and configuration distribution from them. In your own designs, find the primitive that you need. Do not simply "add ZooKeeper".
 
 ---
 
-### Consul (and Vault)
+### Consul and Vault
 
-**What it is.** HashiCorp's service discovery and configuration system. A few Consul **servers** (3 or 5) hold the service catalog, health status and KV store in a Raft cluster. Every machine runs a lightweight **client agent**.
+**What it is.** Consul is the service discovery and configuration system from HashiCorp. A few Consul **servers**, usually 3 or 5, hold the service catalog, the health status and the key-value store in a Raft cluster. Each machine runs a lightweight **client agent**.
 
-**Where consensus comes in.** The catalog, the KV config and the locks must be consistent. But tracking the liveness of thousands of machines through Raft would overwhelm it.
+**Where consensus is necessary.** The catalog, the key-value configuration and the locks must be consistent. But Raft cannot easily track the liveness of thousands of machines, because the load is too high.
 
-**How it's used.**
-- **Two layers.** Raft among the servers holds the state. **Gossip** among all agents (a SWIM-based protocol) handles membership and failure detection. Gossip discovers that a node has gone, and the servers record that fact through Raft.
-- **The caller chooses read freshness.** *Default* reads come from the leader and are fast, but can be very slightly stale during a leader change. *Consistent* reads make the leader confirm with a quorum first. *Stale* reads let any server answer, which scales reads but may lag.
-- **Vault** (secrets management) can store its data in Consul or in its built-in "integrated storage", which is also Raft.
+**How Consul uses it.**
 
-**Design lesson.** Use consensus for the small set of facts that must be right, and gossip for the large, fast-changing, approximate ones. Let callers choose read freshness, because not every read needs a quorum.
+- **2 layers.** Raft on the servers holds the state. **Gossip** among all the agents handles membership and failure detection. The gossip protocol is based on SWIM. Gossip finds that a node is gone, and then the servers record that fact through Raft.
+- **The caller selects the freshness of a read.** *Default* reads come from the leader and are fast. But during a leader change, they can be a little stale. *Consistent* reads make the leader confirm its position with a quorum first. *Stale* reads let any server answer. These reads scale, but they can be old.
+- **Vault**, the secrets manager from HashiCorp, can store its data in Consul. It can also use its built-in "integrated storage", which also uses Raft.
+
+**Design lesson.** Use consensus for the small set of facts that must be correct. Use gossip for the large set of facts that change quickly and can be approximate. Let callers select the freshness of reads, because not every read needs a quorum.
 
 ---
 
 ## Part 2: Built-in metadata quorum
 
-### Kafka (KRaft)
+### Kafka with KRaft
 
-**What it is.** A distributed, append-only log. Topics are split into partitions, and each partition is replicated across several brokers.
+**What it is.** A distributed log, to which you can only append. Kafka divides topics into partitions, and it replicates each partition across many brokers.
 
-**Where consensus comes in.** Cluster metadata: which brokers are alive, which topics and partitions exist, which broker leads each partition, and which replicas are in sync. If two brokers both believed they led the same partition, producers would write diverging data.
+**Where consensus is necessary.** In the cluster metadata: which brokers are alive, which topics and partitions exist, which broker leads each partition, and which replicas are in sync. If 2 brokers both thought that they led the same partition, producers would write data that diverges.
 
-**How it's used.**
+**How Kafka uses it.**
 
 ```mermaid
 flowchart TB
@@ -92,12 +97,12 @@ flowchart TB
     CQ -.->|leaders, epochs, ISR| BR
 ```
 
-- **A small controller quorum** (3 or 5 nodes) runs Raft over a metadata log. The Raft leader is the active controller, and brokers replicate the metadata log and act on it. Since Kafka 4.0 (March 2025), this is the only mode; ZooKeeper support has been removed.
-- **Partition data is *not* replicated with Raft.** Each partition has a leader, and followers fetch from it. The leader tracks the **in-sync replicas (ISR)**. With `acks=all` and `min.insync.replicas=2`, a write is acknowledged once every in-sync replica has it.
-- **Failover is decided by consensus.** When a partition leader dies, the controller picks a new leader from the ISR and bumps the partition's **leader epoch**. The old leader's epoch is now stale, so its requests are rejected. That's fencing.
-- **Why not Raft for the data too?** ISR replication can keep data safe with fewer copies, because the set of trusted replicas is itself maintained by consensus. The controller is the single arbiter of who's in sync.
+- **A small controller quorum** of 3 or 5 nodes runs Raft over a metadata log. The Raft leader is the active controller. Brokers replicate the metadata log and act on it. Since Kafka 4.0 in March 2025, this is the only mode. Kafka 4.0 removed the support for ZooKeeper.
+- **Kafka does *not* use Raft to replicate partition data.** Each partition has a leader, and the followers fetch from it. The leader tracks the **in-sync replicas (ISR)**. With `acks=all` and `min.insync.replicas=2`, the leader acknowledges a write when each in-sync replica has the write.
+- **Consensus decides failover.** When a partition leader stops, the controller selects a new leader from the ISR. It also increments the **leader epoch** of the partition. The epoch of the old leader is now stale, so the brokers reject its requests. This is fencing.
+- **Why not use Raft for the data too?** ISR replication can keep data safe with fewer copies, because consensus controls the set of trusted replicas. The controller is the only authority that decides which replicas are in sync.
 
-**Design lesson.** You don't need consensus on every byte. Put consensus on *who's in charge* (membership, leadership, epochs) and use cheaper replication for the bulk data, made safe by those decisions.
+**Design lesson.** You do not need consensus on each byte. Use consensus to decide *who is in charge*: membership, leadership and epochs. Then use less expensive replication for the bulk data. Those decisions make the bulk replication safe.
 
 ---
 
@@ -105,11 +110,11 @@ flowchart TB
 
 ### CockroachDB
 
-**What it is.** A distributed SQL database (Postgres-compatible wire protocol) built to survive node, zone and region failures, with serializable transactions.
+**What it is.** A distributed SQL database that uses the Postgres wire protocol. Its design survives failures of nodes, zones and regions, and it gives serializable transactions.
 
-**Where consensus comes in.** Every write to user data. No acknowledged write may be lost, and every reader must see a consistent state.
+**Where consensus is necessary.** For each write to user data. The system must never lose an acknowledged write, and each reader must see a consistent state.
 
-**How it's used.**
+**How CockroachDB uses it.**
 
 ```mermaid
 flowchart LR
@@ -135,125 +140,130 @@ flowchart LR
     C3 -.-|Raft| C1
     C3 -.-|Raft| C2
 ```
-*Each range is its own Raft group (★ = leader / leaseholder). Leaders are spread across nodes so every node shares the work.*
 
-- **Multi-Raft.** The keyspace is split into **ranges** (512 MiB by default), and each range is replicated 3 times by default as its own Raft group. A cluster holding terabytes runs tens of thousands of independent Raft groups.
-- **Leaseholder.** One replica per range holds a lease. It serves reads directly, with no Raft round trip, and proposes all writes. It is the same replica as the Raft leader.
-- **Writes** are appended to the range's Raft log and committed once a majority acknowledges them.
-- **Cross-range transactions.** A transaction's status lives in a transaction record stored in one of the ranges it touches. Committing means writing that record, which is itself Raft-replicated, so the "coordinator" can't be lost the way a classic 2PC coordinator can.
-- **Placement.** Zone configurations pin replicas and leaseholders to particular regions, for example keeping a European customer's leaseholder in Europe.
-- **The cost shows up in production.** Every Raft group does background work even when idle, so the number of ranges per node becomes a CPU scaling limit.
+*Each range is a separate Raft group. The ★ shows the leader, which is also the leaseholder. The leaders are on different nodes, so all the nodes share the work.*
 
-**Design lesson.** Scale consensus out by sharding into many small groups. Let a lease-holding leader serve reads, so reads skip consensus. Expect a per-group overhead.
+- **Multi-Raft.** CockroachDB divides the keyspace into **ranges**. The default size of a range is 512 MiB. By default, the system replicates each range 3 times, and each range is a separate Raft group. A cluster with terabytes of data runs tens of thousands of independent Raft groups.
+- **Leaseholder.** 1 replica of each range holds a lease. It serves reads directly, with no Raft round trip, and it proposes all writes. It is the same replica as the Raft leader.
+- **Writes.** The leader appends each write to the Raft log of the range. The write commits when a majority acknowledges it.
+- **Cross-range transactions.** A transaction record holds the status of the transaction. This record is in one of the ranges that the transaction touches. To commit, the system writes that record. Raft replicates the record, so the system cannot lose the "coordinator". A classic two-phase commit (2PC) coordinator can be lost.
+- **Placement.** Zone configurations keep replicas and leaseholders in specified regions. Example: keep the leaseholder for a European customer in Europe.
+- **The cost in production.** Each Raft group does background work, also when it is idle. Thus the number of ranges on each node becomes a limit on CPU.
+
+**Design lesson.** To scale consensus, divide the data into many small groups. Let a leader with a lease serve reads, so reads skip consensus. Expect an overhead for each group.
 
 ---
 
-### TiDB / TiKV
+### TiDB and TiKV
 
-**What it is.** TiDB is a MySQL-compatible distributed SQL database. Its SQL layer is stateless, and the data lives in **TiKV**, a distributed key-value store.
+**What it is.** TiDB is a distributed SQL database that is compatible with MySQL. Its SQL layer is stateless. The data is in **TiKV**, a distributed key-value store.
 
-**Where consensus comes in.** In two separate places: the data itself, and the metadata about where that data lives.
+**Where consensus is necessary.** In 2 separate places: the data, and the metadata that shows where the data is.
 
-**How it's used.**
-- **Data:** TiKV splits data into **Regions**, each its own Raft group. This is the same multi-Raft idea as CockroachDB.
-- **Metadata:** the **Placement Driver (PD)** tracks where every Region lives, splits and moves Regions to balance load, and hands out globally ordered timestamps for transactions. PD embeds etcd, so its own state and leader election are Raft-backed.
-- **Transactions** use a Percolator-style two-phase commit across Regions, ordered by timestamps from PD.
+**How TiDB uses it.**
 
-**Design lesson.** Both styles in one system: per-shard consensus for data, plus a consensus-backed metadata service for placement and global ordering. A single global timestamp source is simple and correct, but every transaction has to reach it.
+- **Data:** TiKV divides data into **Regions**, and each Region is a separate Raft group. This is the same multi-Raft idea as in CockroachDB.
+- **Metadata:** the **Placement Driver (PD)** records where each Region is. It splits and moves Regions to balance the load. It also gives globally ordered timestamps to transactions. PD contains etcd, so Raft keeps its state and does its leader election.
+- **Transactions** use a two-phase commit across Regions, in the style of Percolator. The timestamps from PD put the transactions in order.
+
+**Design lesson.** This system uses both styles: consensus per shard for the data, and a metadata service on consensus for placement and global order. A single global timestamp source is simple and correct. But each transaction must connect to it.
 
 ---
 
 ### Google Spanner
 
-**What it is.** Google's globally distributed SQL database, offering externally consistent transactions across regions.
+**What it is.** The globally distributed SQL database from Google. It gives externally consistent transactions across regions.
 
-**Where consensus comes in.** Replicating each piece of data across zones or regions without ever losing a write, and keeping transactions that span many shards correct when machines fail mid-transaction.
+**Where consensus is necessary.** In 2 places. Spanner replicates each piece of data across zones or regions, and it must never lose a write. Also, transactions across many shards must stay correct when machines fail during the transaction.
 
-**How it's used.**
-- **Paxos groups.** Data is divided into **splits**, and each split is replicated across zones or regions as a Paxos group. Each group has a long-lived leader holding a time-based lease.
-- **Writes** go to the leader and commit when a majority acknowledges them. Across regions, that round trip is the latency floor, so Spanner's configurations choose where voting replicas live to keep a majority close together.
-- **Cross-split transactions use 2PC, but every participant is a Paxos group,** not a single machine. If a leader dies mid-transaction, another replica of its group takes over with the transaction state intact. That removes 2PC's classic weakness of blocking when the coordinator dies.
-- **TrueTime.** GPS receivers and atomic clocks give each machine a bounded time interval. Spanner waits out that uncertainty before committing ("commit wait"), so timestamps match real-time order. Reads at a past timestamp can then be served by any up-to-date replica without consensus.
+**How Spanner uses it.**
 
-**Design lesson.** Consensus and 2PC solve different problems and compose well: consensus makes each participant fault-tolerant, and 2PC makes the transaction atomic across participants. Where the majority sits decides your write latency.
+- **Paxos groups.** Spanner divides data into **splits**. It replicates each split across zones or regions as a Paxos group. Each group has a leader that lives for a long time and holds a lease based on time.
+- **Writes** go to the leader. A write commits when a majority acknowledges it. Across regions, that round trip sets the minimum latency. Thus Spanner configurations select where the replicas that vote are, to keep a majority near each other.
+- **Cross-split transactions use 2PC, but each participant is a Paxos group,** not a single machine. If a leader stops during a transaction, another replica in its group takes over. The transaction state stays complete. This removes the classic weakness of 2PC: it blocks when the coordinator stops.
+- **TrueTime.** GPS receivers and atomic clocks give each machine a time interval with a known limit. Before Spanner commits, it waits for the duration of that uncertainty. This wait is "commit wait". Thus the timestamps agree with the real-time order. Then any replica that is up to date can serve reads at a past timestamp, without consensus.
+
+**Design lesson.** Consensus and 2PC solve different problems, and they work well together. Consensus makes each participant fault-tolerant. 2PC makes the transaction atomic across participants. The location of the majority decides your write latency.
 
 ---
 
 ### MongoDB replica sets
 
-**What it is.** A document database. A replica set is usually 3 members: one primary and secondaries that copy its operation log (the **oplog**).
+**What it is.** A document database. A replica set usually has 3 members: 1 primary, and secondaries that copy the operation log of the primary. This log is the **oplog**.
 
-**Where consensus comes in.** Deciding who the primary is, and whether a write survives a failover.
+**Where consensus is necessary.** To decide which member is the primary, and if a write survives a failover.
 
-**How it's used.**
-- **Elections** use a Raft-inspired protocol with terms, votes and majorities.
+**How MongoDB uses it.**
+
+- **Elections** use a protocol based on Raft, with terms, votes and majorities.
 - **Secondaries pull the oplog** from the primary.
-- **Write concern decides durability.** With `w: 1`, a write is acknowledged once the primary has it. If the primary dies before replicating it, the new primary never sees that write, and the old primary **rolls it back** when it rejoins. With `w: "majority"`, the write is acknowledged only once a majority has it, so it survives any single failover. Read concerns (`"majority"`, `"linearizable"`) are the equivalent choice for reads.
+- **Write concern decides durability.** With `w: 1`, the primary acknowledges a write when it has the write. If the primary stops before it replicates the write, the new primary never sees that write. When the old primary joins again, it **rolls back** the write. With `w: "majority"`, the system acknowledges the write only when a majority has it. Thus the write survives any single failover. Read concerns, for example `"majority"` and `"linearizable"`, give the same choice for reads.
 
-**Design lesson.** "It uses consensus" doesn't by itself make your write safe; the acknowledgment rule does. Consensus only protects what a majority has. Acknowledging earlier trades durability for latency.
+**Design lesson.** "It uses consensus" does not make your write safe. The rule for acknowledgment makes it safe. Consensus protects only the data that a majority has. If you acknowledge earlier, you get less latency but also less durability.
 
 ---
 
 ### Amazon DynamoDB
 
-**What it is.** AWS's managed key-value and document database. Tables are split into partitions automatically.
+**What it is.** The managed key-value and document database from AWS. DynamoDB divides tables into partitions automatically.
 
-**Where consensus comes in.** The replicas of each partition must agree on which one accepts writes.
+**Where consensus is necessary.** The replicas of each partition must agree on which replica accepts writes.
 
-**How it's used** (as described in AWS's 2022 USENIX ATC paper on DynamoDB):
-- **Each partition** has 3 replicas in different availability zones, forming a replication group that uses **Multi-Paxos** to elect a leader.
-- **Only the leader** serves writes and strongly consistent reads. A write is acknowledged once its log record is persisted by a quorum of replicas (2 of 3).
-- **The leader holds a lease** that it keeps renewing. **Eventually consistent reads** can go to any replica: they cost half as much but may be slightly stale.
-- **Careful failure detection.** A replica that suspects the leader has failed first asks the other replicas whether they can still reach it. This avoids needless elections caused by "gray" failures, where only one network link is bad.
+**How DynamoDB uses it.** The 2022 USENIX ATC paper from AWS gives this description:
 
-**Design lesson.** Even a system known for availability runs consensus inside every partition. Offer callers a choice of read consistency, priced accordingly.
+- **Each partition** has 3 replicas in different availability zones. The replicas make a replication group, which uses **Multi-Paxos** to elect a leader.
+- **Only the leader** serves writes and strongly consistent reads. The leader acknowledges a write when a quorum of replicas, 2 of 3, writes the log record to storage.
+- **The leader holds a lease** and renews it continuously. **Eventually consistent reads** can go to any replica. They cost half as much, but they can be a little stale.
+- **Careful failure detection.** A replica can think that the leader failed. Then it first asks the other replicas if they can still connect to the leader. This prevents unnecessary elections that "gray" failures cause. In a gray failure, only 1 network link is bad.
+
+**Design lesson.** Even a system that is famous for availability runs consensus in each partition. Let callers select the consistency of reads, and set the price to match.
 
 ---
 
-## Part 4: Where systems avoid consensus, and why
+## Part 4: Where systems do not use consensus, and why
 
 ### Cassandra
 
-**What it is.** A leaderless, wide-column database. Any replica can accept a write, and consistency is tuned per request with quorums (topic 03). Conflicting writes are resolved by timestamp, last write wins.
+**What it is.** A leaderless, wide-column database. Any replica can accept a write. Each request sets its own consistency level with quorums, as topic 03 explains. Cassandra resolves writes that conflict by timestamp: the last write wins.
 
-**Why no consensus on writes.** Every node stays writable, even across regions and during partitions. The cost: two concurrent writes to the same key can silently lose one.
+**Why there is no consensus on writes.** Each node can always accept writes, also across regions and during partitions. The cost: if 2 writes to the same key occur at the same time, Cassandra can lose one of them with no error.
 
-**Where it does use consensus.** **Lightweight transactions** (`INSERT ... IF NOT EXISTS`, `UPDATE ... IF`) run Paxos on that partition. They take several round trips, so they're reserved for operations that must be unique, such as claiming a username.
+**Where it uses consensus.** **Lightweight transactions** run Paxos on the partition. Examples are `INSERT ... IF NOT EXISTS` and `UPDATE ... IF`. They need many round trips. Thus you use them only for operations that must be unique, for example to claim a username.
 
-**Design lesson.** Default to eventual consistency, and pay for consensus only on the few operations where uniqueness matters.
-
----
-
-### Redis (replication + Sentinel)
-
-**What it is.** An in-memory data store. A primary replicates **asynchronously** to its replicas, and **Sentinel** processes watch the primary and handle failover.
-
-**How agreement is used.** Sentinels agree, by quorum, that the primary is down, then elect one Sentinel to carry out the failover. So *who is primary* is decided by agreement, but replicating the data never waits for it.
-
-**What that costs.** Writes the old primary acknowledged but hadn't yet replicated are lost on failover. During a network partition, an isolated primary can keep accepting writes that are later discarded. `min-replicas-to-write` narrows that window but doesn't close it.
-
-**Design lesson.** Agreeing on the leader isn't enough. If acknowledgments don't wait for a majority, acknowledged writes can disappear. That's fine for a cache and unacceptable for a ledger.
+**Design lesson.** Use eventual consistency by default. Pay for consensus only on the few operations where uniqueness is important.
 
 ---
 
-## Patterns across all of these
+### Redis with replication and Sentinel
+
+**What it is.** An in-memory data store. A primary replicates **asynchronously** to its replicas. **Sentinel** processes watch the primary and do the failover.
+
+**How Redis uses agreement.** A quorum of Sentinels agrees that the primary is down. Then the Sentinels elect 1 Sentinel to do the failover. Thus agreement decides *which node is the primary*. But the replication of data never waits for agreement.
+
+**What that costs.** The old primary can acknowledge writes before it replicates them. The failover loses these writes. During a network partition, an isolated primary can continue to accept writes, and the system discards them later. `min-replicas-to-write` makes that window smaller, but it does not remove it.
+
+**Design lesson.** Agreement on the leader is not enough. If acknowledgments do not wait for a majority, acknowledged writes can disappear. That is acceptable for a cache. It is not acceptable for a ledger.
+
+---
+
+## Lessons from all these systems
 
 | Lesson | Seen in |
 |--------|---------|
-| Keep the consensus store small; keep the data plane independent of it | Kubernetes/etcd, ZooKeeper users |
-| Put consensus on leadership and epochs; replicate bulk data more cheaply | Kafka, HDFS |
-| Scale out by splitting data into many small consensus groups | CockroachDB, TiKV, Spanner, DynamoDB |
-| Use a leader lease to serve reads without a consensus round trip | CockroachDB, Spanner, DynamoDB |
-| The acknowledgment rule, not the election protocol, decides durability | MongoDB, Redis |
-| Combine consensus with 2PC for atomic cross-shard transactions | Spanner, CockroachDB, TiDB |
-| Use consensus where uniqueness matters, something cheaper elsewhere | Cassandra LWT, Consul (Raft + gossip) |
+| Keep the consensus store small. Keep the data plane independent of it. | Kubernetes with etcd, ZooKeeper users |
+| Use consensus for leadership and epochs. Replicate bulk data with a less expensive method. | Kafka, HDFS |
+| To scale, divide the data into many small consensus groups. | CockroachDB, TiKV, Spanner, DynamoDB |
+| Use a leader lease to serve reads without a consensus round trip. | CockroachDB, Spanner, DynamoDB |
+| The rule for acknowledgment decides durability, not the election protocol. | MongoDB, Redis |
+| Use consensus with 2PC for atomic transactions across shards. | Spanner, CockroachDB, TiDB |
+| Use consensus where uniqueness is important, and a less expensive method in other places. | Cassandra lightweight transactions, Consul with Raft and gossip |
 
 ---
 
 ## Think it through
 
-1. etcd loses quorum. Which parts of a Kubernetes cluster keep working, and which stop? Why was it designed that way?
-2. Kafka replicates partition data with ISR but metadata with Raft. What would go wrong if the controller's own metadata were replicated the ISR way?
-3. Walk step by step through how a MongoDB write acknowledged with `w: 1` gets lost. What exactly changes with `w: "majority"`?
-4. Raft already has a leader. Why does CockroachDB also need a *lease* before serving reads locally?
-5. Your service needs "only one worker processes each job". Which primitive from this page would you build it on, and what happens when that worker freezes for 30 seconds?
+1. etcd loses quorum. Which parts of a Kubernetes cluster continue to work, and which parts stop? Why did the designers make it this way?
+2. Kafka replicates partition data with ISR, but it replicates metadata with Raft. What can go wrong if the controller replicated its own metadata with ISR?
+3. Step by step, explain how a MongoDB write with `w: 1` gets lost. What changes with `w: "majority"`?
+4. Raft already has a leader. Why does CockroachDB also need a *lease* before it serves reads locally?
+5. Your service needs this rule: "only 1 worker processes each job". Which primitive from this page do you use for it? What occurs when that worker freezes for 30 seconds?

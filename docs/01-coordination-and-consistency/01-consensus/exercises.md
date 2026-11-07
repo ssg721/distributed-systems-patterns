@@ -1,21 +1,34 @@
 # Consensus: Design Exercises
 
-Realistic systems where consensus shapes the design. Try a design for each before reading the worked solution (added in L13). For each one, decide: which facts need agreement, what system provides it, what stays out of it, and what happens on each kind of failure.
+Each exercise is a real system in which consensus decides the design. Try a design for each exercise before you read the solution. Lesson L13 adds the solutions.
 
-### 1. A scheduler that never double-runs
-Your company runs 50,000 scheduled jobs: reports, billing runs, cleanups. Today a single VM runs them, and when it died last month, billing ran six hours late. Make it highly available without ever running a billing job twice.
+For each exercise, decide these items:
+
+- Which facts need agreement.
+- Which system gives that agreement.
+- Which data stays out of the consensus system.
+- What occurs for each type of failure.
+
+### 1. A scheduler that never runs a job twice
+
+Your company runs 50,000 scheduled jobs, for example reports, billing runs and cleanups. Today, 1 virtual machine (VM) runs all the jobs. Last month, that VM stopped, and billing ran 6 hours late. Make the scheduler highly available. It must never run a billing job twice.
 
 ### 2. A shared lock service
-Several services need mutual exclusion on resources ("only one process may migrate tenant 42's data"). Design a lock service they can all use. Locks must survive a server crash, and a lock holder that freezes for 30 seconds must not be able to corrupt anything.
+
+Many services need mutual exclusion on resources. Example: only 1 process can move the data of tenant 42. Design a lock service that all the services can use. A lock must survive a server crash. If a lock holder freezes for 30 seconds, it must not corrupt data when it starts again.
 
 ### 3. A strongly consistent key-value store
-A store for account balances: 2 TB of data, 50,000 writes per second, three availability zones in one region. No acknowledged write may ever be lost, and reads must see the latest write.
 
-### 4. Config and feature flags
-5,000 service instances read feature flags. A change must reach all of them within seconds, and no instance may ever see version 7 of the config and then version 6.
+Design a store for account balances. The store has 2 TB of data and 50,000 writes each second. It uses 3 availability zones in 1 region. The store must never lose an acknowledged write. Each read must show the latest write.
 
-### 5. Collision-free IDs
-A short-URL service generates 20,000 IDs per second across 30 app servers that scale up and down. IDs must never collide.
+### 4. Configuration and feature flags
 
-### 6. Going multi-region
-Take exercise 3, but users are in India, Europe and the US, and the business wants to survive a full region outage. What does each write now cost, and what would you change?
+5,000 service instances read feature flags. A change must get to all the instances in a few seconds. An instance must never see version 7 of the configuration and then version 6.
+
+### 5. IDs that never collide
+
+A short-URL service makes 20,000 IDs each second on 30 application servers. The number of servers increases and decreases. 2 IDs must never be the same.
+
+### 6. Expand to many regions
+
+Start with exercise 3. Now the users are in India, Europe and the US. The business must continue to operate if a full region stops. What does each write cost now? What do you change?

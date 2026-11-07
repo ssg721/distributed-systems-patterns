@@ -1,6 +1,6 @@
 site_name: Distributed Systems Patterns
 site_url: https://ssg721.github.io/distributed-systems-patterns/
-site_description: A practical guide to the patterns that make distributed systems work, and how real systems use them.
+site_description: The patterns that make distributed systems work, and how real systems use them.
 repo_url: https://github.com/ssg721/distributed-systems-patterns
 repo_name: ssg721/distributed-systems-patterns
 edit_uri: edit/main/docs/
@@ -35,9 +35,9 @@ theme:
 
 nav:
   - Home: index.md
-  - Coordination & Consistency:
+  - Coordination and Consistency:
       - 01-coordination-and-consistency/README.md
-      - Consensus (Raft / Paxos):
+      - "Consensus: Raft and Paxos":
           - Overview: 01-coordination-and-consistency/01-consensus/README.md
           - In real systems: 01-coordination-and-consistency/01-consensus/real-world-systems.md
           - Design exercises: 01-coordination-and-consistency/01-consensus/exercises.md

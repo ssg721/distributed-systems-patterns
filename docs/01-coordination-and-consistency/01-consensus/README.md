@@ -1,60 +1,60 @@
-# 01 · Consensus (Raft / Paxos)
+# 01 · Consensus: Raft and Paxos
 
-> Consensus lets a group of machines agree on a single, ordered sequence of decisions, and keep agreeing as long as a majority of them are alive and can reach each other.
+> Consensus lets a group of machines agree on one ordered sequence of decisions. The group continues to agree while a majority of the machines are alive and can connect to each other.
 
 ---
 
 ## 1. The problem
 
-Take a job scheduler running on one VM. When that VM dies, nothing runs until someone notices. The natural fix is to run a second instance as a standby. That is where the trouble starts:
+Start with a job scheduler that runs on 1 virtual machine (VM). When that VM stops, no jobs run until a person sees the problem. The usual fix is to run a second instance as a standby. Then the problems start:
 
-| Obvious fix | What actually happens |
-|-------------|-----------------------|
-| The standby takes over when the primary stops answering heartbeats | The primary wasn't dead, just paused (a GC pause, a network blip). Both instances now run jobs, and the billing job runs twice. This is **split brain**. |
-| Run both, and have each check with the other before acting | When the link between them breaks, each must either stop (and nothing runs) or carry on alone (split brain again). Two nodes cannot tell "the other node died" apart from "I can't reach it". |
-| Store "who is primary" in a database | Now the database is the single point of failure, and replicating *that* database is the same problem one level down. |
+| Obvious fix | What occurs |
+|-------------|-------------|
+| The standby takes over when the primary stops its heartbeats. | The primary did not stop. It only paused, for example for a garbage collection pause or a short network fault. Now both instances run jobs, and the billing job runs twice. This is **split brain**. |
+| Run both instances. Each instance asks the other instance before it starts a job. | The link between the instances can break. Then each instance must stop, and no jobs run. Or each instance continues alone, and split brain occurs again. 2 nodes cannot see the difference between "the other node stopped" and "I cannot connect to the other node". |
+| Store the name of the primary in a database. | Now the database is the single point of failure. If you replicate that database, you have the same problem again, 1 level lower. |
 
-The underlying problem is getting several machines to agree on a fact (who the primary is, what the next write is) when any of them can crash and messages can be lost or delayed with no way to tell which. Consensus algorithms solve exactly this. They give you a **replicated log**: every replica applies the same commands in the same order, and once an entry is committed it is never undone.
+This is the root problem: many machines must agree on a fact, for example the primary or the next write. Each machine can crash. Messages can be lost or delayed, and no machine can know which of these occurred. Consensus algorithms solve this problem. They give you a **replicated log**. Each replica applies the same commands in the same order. After the system commits an entry, the entry never changes.
 
 ### What it guarantees
 
-- **Safety:** two replicas never commit different entries at the same log position. This holds no matter how messages are delayed, reordered or lost.
-- **Liveness:** the system makes progress whenever a majority is up and the network is stable enough.
-- **Fault tolerance:** `2f + 1` nodes survive `f` crashed nodes. 3 nodes survive 1 failure; 5 survive 2.
-- **Out of scope:** nodes that lie or are malicious (Byzantine faults). Those need BFT protocols such as PBFT, as used in blockchains.
+- **Safety:** 2 replicas never commit different entries at the same log position. This stays true when messages are delayed, lost, or arrive in a different order.
+- **Liveness:** the system continues to make progress when a majority of the nodes is up and the network is stable enough.
+- **Fault tolerance:** a cluster of `2f + 1` nodes survives `f` crashed nodes. 3 nodes survive 1 failure. 5 nodes survive 2 failures.
+- **Out of scope:** nodes that lie or attack the system. These are Byzantine faults. They need Byzantine fault tolerance (BFT) protocols, for example Practical Byzantine Fault Tolerance (PBFT), which some blockchains use.
 
 ---
 
-## 2. Where it sits in real systems
+## 2. Where it is used in real systems
 
-### Systems built on it
+### Systems that use consensus
 
-| System | What it agrees on | What would break without it |
-|--------|-------------------|-----------------------------|
-| Kubernetes (etcd) | All cluster state: pods, nodes, leases, config | Two controllers act on conflicting views; state that a component already acted on gets rolled back |
-| Kafka (KRaft) | Cluster metadata: topics, partition leaders, broker membership | Two brokers both lead a partition and accept diverging writes |
-| CockroachDB, TiKV, YugabyteDB | Every range of data (each range is its own Raft group) | Acknowledged writes lost when a replica fails |
-| Google Spanner | Every data split (each is a Paxos group) | The same, plus no durable coordinator for cross-split transactions |
-| Consul, Vault | Service catalog, KV config, secrets | Services discover dead or wrong instances |
-| ZooKeeper (Zab), used by HBase and HDFS NameNode failover | Who the active master is; locks; config | Two active NameNodes corrupt the filesystem namespace |
-| MongoDB replica sets | Which member is primary (Raft-based election) | Two primaries; acknowledged writes rolled back |
+| System | What the system agrees on | What breaks without consensus |
+|--------|---------------------------|-------------------------------|
+| Kubernetes, with etcd | All cluster state: pods, nodes, leases and configuration | 2 controllers act on different views of the cluster. The cluster rolls back state after a component acted on it. |
+| Kafka, with KRaft | Cluster metadata: topics, partition leaders and broker membership | 2 brokers both lead a partition and accept writes that diverge. |
+| CockroachDB, TiKV and YugabyteDB | Each range of data. Each range is a separate Raft group. | Acknowledged writes are lost when a replica fails. |
+| Google Spanner | Each split of data. Each split is a Paxos group. | The same problem. Also, cross-split transactions have no durable coordinator. |
+| Consul and Vault | The service catalog, key-value configuration and secrets | Services find instances that are dead or wrong. |
+| ZooKeeper, with Zab. HBase and HDFS NameNode failover use it. | The active master, locks and configuration | 2 active NameNodes corrupt the file system namespace. |
+| MongoDB replica sets | The primary member, through a Raft-based election | 2 primaries occur, and the system rolls back acknowledged writes. |
 
-**Deep dive:** [real-world-systems.md](real-world-systems.md) covers each system: what it is, where consensus comes in, how it's used, and the design lesson to take away.
+**More detail:** [Consensus in real systems](real-world-systems.md) explains each system. It shows what the system is, where consensus is necessary, how the system uses consensus, and the design lesson.
 
-### Recognising when a design needs it
+### How to know if a design needs consensus
 
-Ask: **if two nodes disagreed about this fact for a few seconds, what would break?**
+Ask this question: **if 2 nodes disagree on this fact for a few seconds, what breaks?**
 
-- **Something irreversible:** a job runs twice, money moves twice, two owners write to the same resource, an acknowledged write disappears. The fact needs agreement: consensus, or something built on it such as a lease from etcd.
-- **Something temporary and harmless:** a like count is slightly off, a feed is a few seconds stale, a "last seen" time lags. Eventual consistency is fine, and consensus would add cost for nothing.
+- **The damage is permanent:** a job runs twice, money moves twice, 2 owners write to the same resource, or an acknowledged write disappears. The fact needs agreement. Use consensus, or a tool built on consensus, for example a lease from etcd.
+- **The damage is temporary and small:** a count of likes is a little incorrect. Or a feed is a few seconds old, or a "last seen" time is late. Eventual consistency is enough. Consensus adds cost and gives no benefit.
 
-| Fact | Disagreement causes | Needs consensus? |
-|------|--------------------|------------------|
-| Which replica is primary for a database shard | Two primaries, diverging data | Yes |
-| Which worker owns a job | Duplicate execution | Yes (usually a lease on top of it) |
-| The next free range of IDs | Duplicate IDs | Yes, but only once per range |
-| Number of likes on a post | A count off by a few for a moment | No |
-| A user's "last active" timestamp | A slightly stale value | No |
+| Fact | Effect of disagreement | Needs consensus? |
+|------|------------------------|------------------|
+| The primary replica of a database shard | 2 primaries, and the data diverges | Yes |
+| The worker that owns a job | The job runs twice | Yes. Usually through a lease on top of consensus. |
+| The next unused range of IDs | 2 servers use the same IDs | Yes, but only 1 time for each range |
+| The number of likes on a post | The count is incorrect by a few, for a short time | No |
+| The "last active" time of a user | The value is a little old | No |
 
 ### Where it sits in an architecture
 
@@ -63,80 +63,88 @@ flowchart LR
     C[Clients] --> API[API servers]
     API --> A[Shard A]
     API --> B[Shard B]
-    W[Workers / schedulers]
-    subgraph CP["Control plane: consensus cluster (etcd / ZooKeeper / KRaft)"]
+    W[Workers and schedulers]
+    subgraph CP["Control plane: a consensus cluster, for example etcd, ZooKeeper or KRaft"]
         N1((node 1)) --- N2((node 2)) --- N3((node 3))
     end
-    API -.->|config, service discovery| N1
-    A -.->|who leads shard A?| N2
-    W -.->|lock / leader lease| N3
+    API -.->|configuration, service discovery| N1
+    A -.->|which node leads shard A?| N2
+    W -.->|lock or leader lease| N3
 ```
 
-Consensus usually lives in the **control plane**: a small cluster holding the few facts everything else depends on. The data plane asks it questions occasionally rather than on every request. When the data itself must be strongly consistent, it is split into many small consensus groups (**multi-Raft**, as in CockroachDB and TiKV) so no single group becomes the bottleneck.
+Consensus usually operates in the **control plane**. The control plane is a small cluster that holds the few facts that all other components need. The data plane asks the control plane only sometimes, not for each request.
+
+Sometimes the data itself must be strongly consistent. Then the system divides the data into many small consensus groups. This is **multi-Raft**, and CockroachDB and TiKV use it. With many small groups, no single group becomes the bottleneck.
 
 ### What it costs
 
-- **Latency:** every committed decision waits for a round trip to a majority plus a disk flush. That's about a millisecond within a datacenter and 100 ms or more across continents.
-- **Throughput:** all writes go through one leader per group.
-- **Availability:** a node cut off from the majority must stop accepting writes. Consensus deliberately gives up availability to stay correct (it is "CP" in CAP terms).
+- **Latency:** each committed decision waits for a round trip to a majority and for a disk flush. In a datacenter, this is about 1 ms. Between continents, it is 100 ms or more.
+- **Throughput:** all writes go through 1 leader in each group.
+- **Availability:** if a node cannot connect to the majority, it must stop and accept no writes. Consensus gives up availability to stay correct. In the terms of the CAP theorem, consensus is "CP".
 
-So in practice you **rarely implement consensus yourself**. You pick a system that already has it (etcd, ZooKeeper, a consensus-replicated database), keep high-volume, eventually consistent data out of it, and design your service around its guarantees and costs.
+Thus, in practice, you **seldom implement consensus yourself**. You select a system that already has consensus, for example etcd, ZooKeeper or a consensus-replicated database. You keep high-volume, eventually consistent data out of that system. Then you design your service around the guarantees and the costs of that system.
 
 ---
 
-## 3. Learning path
+## 3. Study plan
 
 ### Phase A: Foundations
-- [ ] **L1. Failure and agreement:** crash vs Byzantine faults, synchronous vs asynchronous networks, partial failure, FLP impossibility (the intuition), safety vs liveness, why majorities always overlap, why 2 nodes (or any even number) don't help.
-- [ ] **L2. Replicated state machines:** a log plus a deterministic state machine, what "committed" means, linearizability, and where consensus sits in CAP.
 
-### Phase B: Raft in depth
-- [ ] **L3. Leader election:** follower / candidate / leader roles, terms, `RequestVote`, randomized election timeouts, split votes, the "most up-to-date log" voting rule.
-- [ ] **L4. Log replication:** `AppendEntries`, the `prevLogIndex`/`prevLogTerm` consistency check, the log matching property, commit index, how a leader repairs follower logs.
-- [ ] **L5. Safety corner cases:** why a leader only commits entries from its *own* term by counting replicas (the paper's "Figure 8"), leader completeness, what happens to uncommitted entries.
-- [ ] **L6. Making Raft practical:** snapshots and log compaction, membership changes (single-server changes vs joint consensus), linearizable reads (ReadIndex, lease reads), client retries and deduplication, PreVote and CheckQuorum, learners (non-voting members).
+- [ ] **L1. Failure and agreement:** crash faults and Byzantine faults; synchronous and asynchronous networks; partial failure; the intuition behind the Fischer, Lynch and Paterson (FLP) impossibility result; safety and liveness; why 2 majorities always overlap; why 2 nodes, or any even number of nodes, do not help.
+- [ ] **L2. Replicated state machines:** a log and a deterministic state machine; the meaning of "committed"; linearizability; the position of consensus in the CAP theorem.
 
-### Phase C: Paxos and relatives
-- [ ] **L7. Basic Paxos and Multi-Paxos:** proposers, acceptors, learners; prepare/promise and accept/accepted; why two phases are needed; Multi-Paxos as "elect a stable leader, then skip phase 1".
-- [ ] **L8. Raft vs Paxos vs Zab vs Viewstamped Replication:** what actually differs, why Raft was designed, and a brief look at EPaxos and Flexible Paxos.
+### Phase B: Raft in detail
+
+- [ ] **L3. Leader election:** the follower, candidate and leader roles; terms; `RequestVote`; random election timeouts; split votes; the election restriction, which lets a node vote only for a candidate whose log is at least as up to date as its own log.
+- [ ] **L4. Log replication:** `AppendEntries`; the consistency check with `prevLogIndex` and `prevLogTerm`; the log matching property; the commit index; how a leader repairs the logs of followers.
+- [ ] **L5. Safety in edge cases:** why a leader counts replicas to commit only entries from its own term, as in Figure 8 of the Raft paper; leader completeness; what occurs to uncommitted entries.
+- [ ] **L6. Raft in practice:** snapshots and log compaction; membership changes, with single-server changes or joint consensus; linearizable reads with ReadIndex or lease reads; client retries and deduplication; PreVote and CheckQuorum; learners, which are members without a vote.
+
+### Phase C: Paxos and related protocols
+
+- [ ] **L7. Basic Paxos and Multi-Paxos:** proposers, acceptors and learners; the prepare and promise phase; the accept and accepted phase; why Paxos needs 2 phases; Multi-Paxos, which elects a stable leader and then skips phase 1.
+- [ ] **L8. Raft, Paxos, Zab and Viewstamped Replication:** the real differences; why the authors designed Raft; a short overview of EPaxos and Flexible Paxos.
 
 ### Phase D: In production
-- [ ] **L9. Consensus systems up close:** read [real-world-systems.md](real-world-systems.md), then go hands-on with the APIs these systems expose: etcd watches, leases and transactions; ZooKeeper ephemeral and sequential znodes.
-- [ ] **L10. Performance and deployment:** latency budget (round trip + fsync), the leader bottleneck, batching and pipelining, 3 vs 5 vs 7 nodes, placement across zones and regions, scaling out with multi-Raft.
-- [ ] **L11. Failure walkthroughs:** leader crash; partition with the old leader on the minority side; slow disk; full region outage; a "zombie" ex-leader still writing to external storage (which leads into fencing tokens, the next topic).
 
-### Phase E: Designing with it
-- [ ] **L12. Using consensus in your own designs:** reuse vs build; what to store in the consensus layer and what to keep out; sizing and placement; how your service should behave on timeouts and when it loses contact with the cluster.
-- [ ] **L13. Case studies:** work through [exercises.md](exercises.md) end to end.
+- [ ] **L9. Consensus systems in detail:** read [Consensus in real systems](real-world-systems.md). Then use the APIs of these systems: etcd watches, leases and transactions, and ZooKeeper ephemeral and sequential znodes.
+- [ ] **L10. Performance and deployment:** the latency budget, which is a round trip plus an fsync; the leader bottleneck; batching and pipelining; clusters of 3, 5 or 7 nodes; placement across zones and regions; scale-out with multi-Raft.
+- [ ] **L11. Failure walkthroughs:** a leader crash; a partition with the old leader on the minority side; a slow disk; a full region outage; a "zombie" old leader that continues to write to external storage. The last case leads to fencing tokens, the next topic.
 
-### Build it (Go)
-- [ ] **H1.** Watch elections and partitions in the [Raft simulator](https://raft.github.io/) while doing L3–L4.
-- [ ] **H2.** Build a toy Raft (leader election + log replication) with partition tests, in the style of MIT 6.5840's Raft lab.
-- [ ] **H3.** Build a 3-node KV store on `hashicorp/raft` or `etcd-io/raft`, then kill nodes and partition it.
+### Phase E: Design with consensus
 
----
+- [ ] **L12. Consensus in your own designs:** reuse or build; what to store in the consensus layer and what to keep out; size and placement; how your service must behave on timeouts and when it loses contact with the cluster.
+- [ ] **L13. Case studies:** complete each problem in the [design exercises](exercises.md) from start to end.
 
-## 4. Questions you should be able to reason through
+### Build it in Go
 
-- Why an odd number of nodes? What does a 4th node buy you over 3?
-- What happens when the leader is cut off from the majority?
-- Can two nodes believe they're leader at the same time? Why is that still safe?
-- A client's write times out. Did it happen? How should the client retry?
-- How can reads skip the log, and when does that risk stale reads?
-- How do you add a node or replace a dead one without downtime?
-- Why is consensus slow across regions, and how do Spanner and CockroachDB cope?
-- How do consensus and 2PC differ, and why does Spanner use both?
-- What is split brain, and exactly how does a majority prevent it?
+- [ ] **H1.** Use the [Raft simulator](https://raft.github.io/) to watch elections and partitions while you do L3 and L4.
+- [ ] **H2.** Build a small Raft with leader election, log replication and partition tests. Use the style of the Raft lab in MIT 6.5840.
+- [ ] **H3.** Build a key-value store with 3 nodes on `hashicorp/raft` or `etcd-io/raft`. Then stop nodes and make partitions.
 
 ---
 
-## 5. Resources (in reading order)
+## 4. Questions to reason through
 
-1. [The Secret Lives of Data: Raft](https://thesecretlivesofdata.com/raft/): a 10-minute animated intro
-2. [raft.github.io](https://raft.github.io/): an interactive simulator plus links to implementations
-3. [Raft paper (extended version)](https://raft.github.io/raft.pdf): Ongaro & Ousterhout, 2014. Readable; focus on sections 5 and 6.
-4. *Designing Data-Intensive Applications* (Kleppmann), chapter "Consistency and Consensus" (ch. 9 in the 1st edition)
+- Why use an odd number of nodes? What do 4 nodes give you that 3 nodes do not?
+- What occurs when the leader cannot connect to the majority?
+- Can 2 nodes both think that they are the leader at the same time? Why is that still safe?
+- The write of a client times out. Did the write occur? How must the client retry?
+- How can reads skip the log? When can that give stale reads?
+- How do you add a node, or replace a dead node, without downtime?
+- Why is consensus slow across regions? How do Spanner and CockroachDB decrease that problem?
+- How are consensus and two-phase commit (2PC) different? Why does Spanner use both?
+- What is split brain? How does a majority prevent it?
+
+---
+
+## 5. Resources, in the order to read them
+
+1. [The Secret Lives of Data: Raft](https://thesecretlivesofdata.com/raft/): an animated introduction of 10 minutes
+2. [raft.github.io](https://raft.github.io/): an interactive simulator and links to implementations
+3. [Raft paper, extended version](https://raft.github.io/raft.pdf): by Ongaro and Ousterhout, 2014. It is easy to read. Read sections 5 and 6 carefully.
+4. *Designing Data-Intensive Applications* by Kleppmann: the chapter "Consistency and Consensus". In the 1st edition, this is chapter 9.
 5. [Paxos Made Simple](https://lamport.azurewebsites.net/pubs/paxos-simple.pdf): Lamport, 2001
-6. Diego Ongaro's PhD thesis: membership changes, reads and client sessions in depth
-7. [MIT 6.5840 Distributed Systems](https://pdos.csail.mit.edu/6.824/): the Raft lab is in Go
-8. Source code: `etcd-io/raft`, `hashicorp/raft`
+6. The PhD thesis of Diego Ongaro: membership changes, reads and client sessions, in detail
+7. [MIT 6.5840 Distributed Systems](https://pdos.csail.mit.edu/6.824/): the Raft lab uses Go
+8. Source code: `etcd-io/raft` and `hashicorp/raft`
