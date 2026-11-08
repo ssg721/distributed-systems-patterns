@@ -1,53 +1,80 @@
 # Distributed Systems Patterns
 
-This guide explains the patterns that make distributed systems work. For each pattern, it shows the problem, the mechanism, the use in real systems, and the cost.
+**Learn the patterns behind distributed systems by watching simple designs break, one failure at a time.**
 
-## Approach
+Every system that runs on more than one machine eventually hits the same problems: machines crash, networks drop or delay messages, and a node that is slow looks exactly like a node that is dead. A small set of patterns, such as consensus, fencing tokens, quorums and idempotency, exists to handle those problems. This site explains them so you can **understand them, remember them, and recognise them in the systems you use every day.**
 
-Each pattern starts with a problem. First, you see a real system that fails. Then you try the obvious fixes, and you see why they also fail. Last, you get to the pattern that solves the problem.
+You don't need to be an expert. If you've built a backend service and used a database, you have everything you need.
 
-The goal is not to remember a definition. The goal is to derive the pattern again, and to compare its trade-offs in a new design.
+---
 
-## Structure
+## Start here: Consensus
 
-```
-NN-concept/
-├── README.md              # Overview: the problem, the use in real systems, the study plan
-├── real-world-systems.md  # How production systems use the pattern, and the lesson from each system
-├── lessons/               # One lesson in each file
-├── exercises.md           # Design problems from real systems, from start to end
-└── code/                  # Small Go programs: run them, then make them fail
-```
+The foundation of almost everything else. Read the three pages in order, or jump to whichever question you have.
 
-Each lesson has the same 6 parts:
+<div class="grid cards" markdown>
 
-1. **The problem**: a real situation in which a system fails.
-2. **How it works**: the mechanism, step by step.
-3. **Walkthrough**: a real scenario from start to end, with failures.
-4. **In production**: how real systems, for example etcd, Kafka and Spanner, use and tune the pattern.
-5. **Trade-offs**: the cost of the pattern, and what the alternatives give up.
-6. **Think it through**: questions that you must reason through, not answer from memory.
+-   **1. How consensus evolved**
 
-## Roadmap
+    ---
 
-### 1. [Coordination and Consistency](01-coordination-and-consistency/README.md)
+    From Paxos to PBFT to Raft: which problem each protocol solved, what it left open, and where it runs today.
 
-This part is in progress.
+    [:octicons-arrow-right-24: Read the history](01-coordination-and-consistency/01-consensus/01-evolution.md)
 
-| # | Concept | Status |
-|---|---------|--------|
-| 01 | [Consensus: Raft and Paxos](01-coordination-and-consistency/01-consensus/README.md) | In progress |
-| 02 | Leases and fencing tokens | Not started |
-| 03 | Quorum reads and writes: R + W > N | Not started |
-| 04 | Logical clocks: Lamport clocks, vector clocks and hybrid logical clocks (HLC) | Not started |
-| 05 | Two-phase commit (2PC) and Saga | Not started |
-| 06 | Transactional outbox and change data capture (CDC) | Not started |
-| 07 | Idempotency keys | Not started |
+-   **2. Why consensus? A story**
+
+    ---
+
+    Start with one bank transfer and three simple designs. Break each one, and rebuild Raft from the pieces.
+
+    [:octicons-arrow-right-24: Read the story](01-coordination-and-consistency/01-consensus/02-why-consensus.md)
+
+-   **3. Consensus in real systems**
+
+    ---
+
+    How etcd, Kafka, CockroachDB, Spanner, DynamoDB and others use consensus, and how little of their data they put through it.
+
+    [:octicons-arrow-right-24: Tour the systems](01-coordination-and-consistency/01-consensus/03-real-world-systems.md)
+
+</div>
+
+---
+
+## How every topic is told
+
+Patterns are easy to recite and hard to apply. So each topic is built from the problem up, not from the definition down:
+
+1. **A concrete situation.** A real system, such as a bank transfer or a job scheduler, with a real failure.
+2. **The obvious fixes, and why they break.** Each attempt fails in one specific, memorable way.
+3. **The pattern, one rule at a time.** Every rule fixes one of the breaks you just saw.
+4. **The pattern in production.** Where etcd, Kafka, Spanner and others use it, and the lesson to take into your own designs.
+
+The aim is that you could re-derive the pattern on a whiteboard, and spot when a design needs it, long after you've forgotten the exact wording.
+
+---
+
+## The roadmap
+
+### Part 1: Coordination and consistency
+
+How do several machines act like one correct machine, when any of them can crash and the network can lose or delay messages?
+
+| # | Pattern | The question it answers | Status |
+|---|---------|-------------------------|--------|
+| 01 | [Consensus (Paxos, PBFT, Raft)](01-coordination-and-consistency/01-consensus/01-evolution.md) | How do machines agree on one ordered history? | Available |
+| 02 | Leases and fencing tokens | How do I stop an old owner that doesn't know it was replaced? | Coming next |
+| 03 | Quorum reads and writes | How do I get consistency without a leader? | Planned |
+| 04 | Logical clocks | How do I order events without trusting wall clocks? | Planned |
+| 05 | Two-phase commit vs sagas | How do I change several services or databases atomically? | Planned |
+| 06 | Transactional outbox and CDC | How do I update my database *and* publish an event without losing one? | Planned |
+| 07 | Idempotency keys | How do I make retries safe? | Planned |
 
 ### Later parts
 
-2. **Data distribution and storage:** consistent hashing, sharding, replication models, log-structured merge (LSM) trees and B-trees, event sourcing and command query responsibility segregation (CQRS), Snowflake IDs.
-3. **Probabilistic and special data structures:** Bloom filters, HyperLogLog, Count-Min Sketch, Merkle trees, geohashes and quadtrees, tries and inverted indexes.
-4. **Reliability and traffic control:** rate limiting, circuit breakers and retries, backpressure, gossip, caching strategies.
-5. **Real-time systems and messaging:** fan-out, WebSockets and server-sent events (SSE), queues and dead-letter queues (DLQ), delayed jobs, chunked uploads.
-6. **Collaboration:** conflict-free replicated data types (CRDT) and operational transformation (OT).
+- **Data distribution and storage:** consistent hashing, sharding, replication models, LSM trees vs B-trees, event sourcing, Snowflake IDs.
+- **Probabilistic data structures:** Bloom filters, HyperLogLog, Count-Min Sketch, Merkle trees, geohashes and quadtrees.
+- **Reliability and traffic control:** rate limiting, circuit breakers and retries, backpressure, gossip, caching.
+- **Real-time and messaging:** fan-out, WebSockets and SSE, queues and dead-letter queues, delayed jobs.
+- **Collaboration:** CRDTs vs operational transformation.
