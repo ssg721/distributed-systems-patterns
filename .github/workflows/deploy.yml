@@ -24,7 +24,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: zensical build --config-file mkdocs.yml
+      - run: zensical build --clean
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

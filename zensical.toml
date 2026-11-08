@@ -1,0 +1,80 @@
+[project]
+site_name = "Distributed Systems Patterns"
+site_url = "https://ssg721.github.io/distributed-systems-patterns/"
+site_description = "Learn the patterns behind distributed systems by watching simple designs break, one failure at a time."
+repo_url = "https://github.com/ssg721/distributed-systems-patterns"
+repo_name = "ssg721/distributed-systems-patterns"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Coordination & Consistency" = [
+    { "Overview" = "01-coordination-and-consistency/README.md" },
+    { "Consensus" = [
+      { "1. How consensus evolved" = "01-coordination-and-consistency/01-consensus/01-evolution.md" },
+      { "2. Why consensus? A story" = "01-coordination-and-consistency/01-consensus/02-why-consensus.md" },
+      { "3. Consensus in real systems" = "01-coordination-and-consistency/01-consensus/03-real-world-systems.md" },
+    ]},
+  ]},
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "content.tooltips",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.betterem = {}
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true

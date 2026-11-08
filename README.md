@@ -1,49 +1,40 @@
 # Distributed Systems Patterns
 
-This guide explains the patterns that make distributed systems work. For each pattern, it shows the problem, the mechanism, the use in real systems, and the cost.
+Learn the patterns behind distributed systems by watching simple designs break, one failure at a time.
 
-**Read the guide online:** https://ssg721.github.io/distributed-systems-patterns/
+**Read it online:** https://ssg721.github.io/distributed-systems-patterns/
 
-Each pattern starts with a problem: a real system that fails, and the obvious fixes that also fail. Then the guide shows the pattern that works. Last, it shows how production systems use the pattern, for example etcd, Kafka, Spanner and CockroachDB. Each system gives a lesson for your own designs.
+Each pattern starts from a concrete system that fails, tries the obvious fixes, shows exactly why they break, and builds the pattern one rule at a time. Then it shows how production systems such as etcd, Kafka, Spanner and CockroachDB use it, and what lesson to carry into your own designs.
 
 ## Contents
 
-**1. Coordination and Consistency**
+**Part 1: Coordination and consistency**
 
-| Concept | Status |
-|---------|--------|
-| [Consensus: Raft and Paxos](docs/01-coordination-and-consistency/01-consensus/README.md) · [in real systems](docs/01-coordination-and-consistency/01-consensus/real-world-systems.md) · [design exercises](docs/01-coordination-and-consistency/01-consensus/exercises.md) | In progress |
-| Leases and fencing tokens | Planned |
-| Quorum reads and writes | Planned |
-| Logical clocks | Planned |
-| Two-phase commit (2PC) and Saga | Planned |
-| Transactional outbox and change data capture (CDC) | Planned |
-| Idempotency keys | Planned |
+- **Consensus**
+    1. [How consensus evolved: Paxos, PBFT, Raft](docs/01-coordination-and-consistency/01-consensus/01-evolution.md)
+    2. [Why consensus? A story](docs/01-coordination-and-consistency/01-consensus/02-why-consensus.md)
+    3. [Consensus in real systems](docs/01-coordination-and-consistency/01-consensus/03-real-world-systems.md)
+- Leases and fencing tokens *(coming next)*
+- Quorum reads and writes *(planned)*
+- Logical clocks *(planned)*
+- Two-phase commit vs sagas *(planned)*
+- Transactional outbox and CDC *(planned)*
+- Idempotency keys *(planned)*
 
-The [home page](docs/index.md) shows the full roadmap.
+The full roadmap is on the [home page](docs/index.md).
 
-## Run the site on your computer
+## Running the site locally
 
-The guide uses [Zensical](https://zensical.org) to build the site from the Markdown files in `docs/`.
+The site is built with [Zensical](https://zensical.org) from the Markdown in `docs/`, configured in `zensical.toml`. Zensical needs Python 3.11 or newer.
 
-1. Create a Python virtual environment, and activate it:
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+zensical serve
+```
 
-    ```bash
-    python3 -m venv .venv && source .venv/bin/activate
-    ```
+Then open http://localhost:8000.
 
-2. Install the dependencies:
+## Publishing
 
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3. Start the local server:
-
-    ```bash
-    zensical serve
-    ```
-
-4. Open http://localhost:8000 in your browser.
-
-When you push to `main`, GitHub Actions builds the site again and publishes it.
+Every push to `main` builds the site and publishes it to GitHub Pages through `.github/workflows/deploy.yml`.
