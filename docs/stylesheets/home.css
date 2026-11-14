@@ -356,3 +356,52 @@
     font-size: 1.9rem;
   }
 }
+
+/* ---------- Why this guide: comparison cards ---------- */
+
+.md-typeset .dsp-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.2rem 0 1.6rem;
+}
+.md-typeset .dsp-compare__card {
+  padding: 1.1rem 1.3rem;
+  border: 1px solid var(--dsp-border);
+  border-radius: 0.75rem;
+  background: var(--dsp-surface);
+}
+.md-typeset .dsp-compare__card p {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .dsp-compare__card p:last-child {
+  margin-bottom: 0;
+}
+.md-typeset .dsp-compare__card--ours {
+  border-color: color-mix(in srgb, var(--dsp-c1) 45%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dsp-c1) 9%, transparent), transparent 70%);
+  box-shadow: var(--dsp-shadow);
+}
+.md-typeset .dsp-compare__card--ours p {
+  color: var(--md-default-fg-color);
+}
+.md-typeset .dsp-compare__card p.dsp-compare__label {
+  margin-bottom: 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .dsp-compare__card--ours p.dsp-compare__label {
+  color: var(--dsp-c1);
+}
+
+@media screen and (max-width: 45em) {
+  .md-typeset .dsp-compare {
+    grid-template-columns: 1fr;
+  }
+}
