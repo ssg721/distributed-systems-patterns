@@ -1,0 +1,358 @@
+/* Home page styles. Everything is scoped to classes that start with "dsp-",
+   so the other pages are not affected. */
+
+:root {
+  --dsp-c1: #4f46e5; /* coordination: indigo */
+  --dsp-c2: #0e7490; /* storage: cyan */
+  --dsp-c3: #7c3aed; /* data structures: violet */
+  --dsp-c4: #b45309; /* reliability: amber */
+  --dsp-c5: #be185d; /* messaging: pink */
+  --dsp-c6: #047857; /* collaboration: emerald */
+  --dsp-done: #047857;
+  --dsp-next: #b45309;
+  --dsp-border: rgba(0, 0, 0, 0.09);
+  --dsp-surface: rgba(0, 0, 0, 0.025);
+  --dsp-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.18);
+}
+
+[data-md-color-scheme="slate"] {
+  --dsp-c1: #a5b4fc;
+  --dsp-c2: #67e8f9;
+  --dsp-c3: #c4b5fd;
+  --dsp-c4: #fcd34d;
+  --dsp-c5: #f9a8d4;
+  --dsp-c6: #6ee7b7;
+  --dsp-done: #6ee7b7;
+  --dsp-next: #fcd34d;
+  --dsp-border: rgba(255, 255, 255, 0.1);
+  --dsp-surface: rgba(255, 255, 255, 0.03);
+  --dsp-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Hero ---------- */
+
+/* The "edit this page" button floats over the hero, so hide it on the home page. */
+.md-content__inner:has(.dsp-hero) > .md-content__button {
+  display: none;
+}
+
+.md-typeset .dsp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+  margin: 0 0 2rem;
+  padding: 2.4rem 2.2rem;
+  border: 1px solid var(--dsp-border);
+  border-radius: 1rem;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--dsp-c1) 14%, transparent), transparent 60%),
+    radial-gradient(90% 80% at 0% 100%, color-mix(in srgb, var(--dsp-c6) 10%, transparent), transparent 60%),
+    var(--dsp-surface);
+}
+
+.md-typeset .dsp-eyebrow {
+  margin: 0 0 0.6rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dsp-c1);
+}
+
+.md-typeset .dsp-hero h1 {
+  margin: 0 0 0.8rem;
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .dsp-lead {
+  margin: 0 0 1.4rem;
+  max-width: 30rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .dsp-hero .md-button {
+  margin: 0.2rem 0.4rem 0.2rem 0;
+}
+
+.md-typeset .dsp-hero__art svg {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+}
+
+/* The diagram: a leader, two followers that acknowledged, one that did not
+   answer yet, and one node that is cut off by a partition. */
+.dsp-links line {
+  stroke: var(--md-default-fg-color--lighter);
+  stroke-width: 2;
+}
+.dsp-links .dsp-link--cut {
+  stroke-dasharray: 3 6;
+  opacity: 0.6;
+}
+.dsp-beats line {
+  stroke: var(--dsp-c1);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 10 140;
+  animation: dsp-beat 2.4s linear infinite;
+}
+.dsp-partition {
+  stroke: var(--dsp-c5);
+  stroke-width: 2.5;
+  stroke-dasharray: 8 6;
+}
+.dsp-node circle {
+  fill: var(--md-default-bg-color);
+  stroke: var(--md-default-fg-color--light);
+  stroke-width: 2;
+}
+.dsp-node text {
+  font: 700 15px/1 var(--md-text-font-family, sans-serif);
+  text-anchor: middle;
+  fill: var(--md-default-fg-color--light);
+}
+.dsp-node--leader circle {
+  fill: var(--dsp-c1);
+  stroke: var(--dsp-c1);
+}
+.dsp-node--leader text {
+  fill: var(--md-default-bg-color);
+}
+.dsp-node--ack circle {
+  fill: color-mix(in srgb, var(--dsp-done) 16%, var(--md-default-bg-color));
+  stroke: var(--dsp-done);
+}
+.dsp-node--ack text {
+  fill: var(--dsp-done);
+}
+.dsp-node--down {
+  opacity: 0.45;
+}
+.dsp-caption {
+  font: 600 12px/1 var(--md-text-font-family, sans-serif);
+  text-anchor: middle;
+  fill: var(--md-default-fg-color--light);
+}
+
+@keyframes dsp-beat {
+  from { stroke-dashoffset: 150; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsp-beats line { animation: none; }
+}
+
+/* ---------- Section intro ---------- */
+
+.md-typeset .dsp-section-lead {
+  margin-top: -0.4rem;
+  font-size: 0.95rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* ---------- Roadmap: part cards ---------- */
+
+.md-typeset .dsp-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+  gap: 1rem;
+  margin: 1.2rem 0 0.8rem;
+}
+
+.md-typeset .dsp-part {
+  --dsp-c: var(--dsp-c1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border: 1px solid var(--dsp-border);
+  border-top: 3px solid var(--dsp-c);
+  border-radius: 0.75rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dsp-c) 7%, transparent), transparent 55%);
+  box-shadow: var(--dsp-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.md-typeset .dsp-part:hover {
+  transform: translateY(-2px);
+}
+.md-typeset .dsp-part--2 { --dsp-c: var(--dsp-c2); }
+.md-typeset .dsp-part--3 { --dsp-c: var(--dsp-c3); }
+.md-typeset .dsp-part--4 { --dsp-c: var(--dsp-c4); }
+.md-typeset .dsp-part--5 { --dsp-c: var(--dsp-c5); }
+.md-typeset .dsp-part--6 { --dsp-c: var(--dsp-c6); }
+
+.md-typeset .dsp-part__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.6rem;
+}
+.md-typeset .dsp-part__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  color: var(--dsp-c);
+  background: color-mix(in srgb, var(--dsp-c) 14%, transparent);
+}
+.md-typeset .dsp-part__icon svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  max-height: none;
+}
+.md-typeset .dsp-part__num {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dsp-c);
+}
+
+.md-typeset .dsp-status {
+  margin-left: auto;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--md-default-fg-color--light);
+  background: var(--md-default-fg-color--lightest);
+}
+.md-typeset .dsp-status--live {
+  color: var(--dsp-done);
+  background: color-mix(in srgb, var(--dsp-done) 14%, transparent);
+}
+
+.md-typeset .dsp-part h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.md-typeset .dsp-part h3 a,
+.md-typeset a.dsp-chip {
+  color: inherit;
+  text-decoration: none;
+}
+.md-typeset .dsp-part h3 a:hover {
+  color: var(--dsp-c);
+}
+.md-typeset .dsp-part > p:not(.dsp-chips) {
+  margin: 0 0 0.9rem;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--md-default-fg-color--light);
+}
+
+/* ---------- Chips ---------- */
+
+.md-typeset .dsp-chips,
+.md-typeset .dsp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: auto 0 0;
+}
+.md-typeset .dsp-legend {
+  margin: 0.4rem 0 2rem;
+}
+
+.md-typeset .dsp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.6rem;
+  border: 1px solid var(--dsp-border);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  color: var(--md-default-fg-color--light);
+  background: var(--md-default-bg-color);
+}
+.md-typeset .dsp-chip::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--md-default-fg-color--lighter);
+}
+.md-typeset .dsp-chip--done,
+.md-typeset a.dsp-chip--done {
+  font-weight: 600;
+  color: var(--dsp-done);
+  border-color: color-mix(in srgb, var(--dsp-done) 40%, transparent);
+}
+.md-typeset .dsp-chip--done::before {
+  background: var(--dsp-done);
+}
+.md-typeset a.dsp-chip--done:hover {
+  color: var(--md-default-bg-color);
+  background: var(--dsp-done);
+}
+.md-typeset a.dsp-chip--done:hover::before {
+  background: var(--md-default-bg-color);
+}
+.md-typeset .dsp-chip--next {
+  color: var(--dsp-next);
+  border-color: color-mix(in srgb, var(--dsp-next) 40%, transparent);
+}
+.md-typeset .dsp-chip--next::before {
+  background: var(--dsp-next);
+}
+
+/* ---------- Consensus path cards ---------- */
+
+.md-typeset .dsp-path.grid.cards > ul > li {
+  border-radius: 0.75rem;
+}
+.md-typeset .dsp-path .lg {
+  color: var(--dsp-c1);
+}
+
+/* ---------- Closing call to action ---------- */
+
+.md-typeset .dsp-cta {
+  margin: 2.4rem 0 1rem;
+  padding: 1.6rem;
+  border: 1px solid var(--dsp-border);
+  border-radius: 1rem;
+  text-align: center;
+  background:
+    radial-gradient(80% 120% at 50% 0%, color-mix(in srgb, var(--dsp-c1) 12%, transparent), transparent 70%),
+    var(--dsp-surface);
+}
+.md-typeset .dsp-cta p {
+  margin: 0 0 0.9rem;
+}
+.md-typeset .dsp-cta .md-button {
+  margin: 0.2rem 0.3rem;
+}
+
+/* ---------- Small screens ---------- */
+
+@media screen and (max-width: 60em) {
+  .md-typeset .dsp-hero {
+    grid-template-columns: 1fr;
+    padding: 1.8rem 1.4rem;
+  }
+  .md-typeset .dsp-hero__art svg {
+    max-width: 17rem;
+  }
+}
+
+@media screen and (max-width: 30em) {
+  .md-typeset .dsp-hero h1 {
+    font-size: 1.9rem;
+  }
+}
