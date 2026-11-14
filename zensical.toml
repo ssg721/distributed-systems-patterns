@@ -7,6 +7,7 @@ repo_name = "ssg721/distributed-systems-patterns"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 site_dir = "site"
+extra_css = ["stylesheets/home.css"]
 
 nav = [
   { "Home" = "index.md" },
