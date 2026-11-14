@@ -15,7 +15,7 @@ hide:
 <p class="dsp-lead">Learn the patterns behind distributed systems by watching simple designs break, one failure at a time.</p>
 
 [Start with consensus :lucide-arrow-right:](01-coordination-and-consistency/01-consensus/01-evolution.md){ .md-button .md-button--primary }
-[See the roadmap](#roadmap){ .md-button }
+[Why this guide](#why){ .md-button }
 
 </div>
 
@@ -44,9 +44,63 @@ hide:
 
 </div>
 
-Every system that runs on more than one machine eventually hits the same problems: machines crash, networks drop or delay messages, and a node that is slow looks exactly like a node that is dead. A small set of patterns, such as consensus, fencing tokens, quorums and idempotency, exists to handle those problems. This site explains them so you can **understand them, remember them, and recognise them in the systems you use every day.**
+## Why this guide { #why }
 
-You don't need to be an expert. If you've built a backend service and used a database, you have everything you need.
+<p class="dsp-section-lead">Most system design courses teach you one app at a time. This guide teaches you the few hard pieces that every app keeps needing.</p>
+
+<div class="dsp-compare" markdown>
+
+<div class="dsp-compare__card" markdown>
+
+<p class="dsp-compare__label">The usual way</p>
+
+Take one problem, like "Design WhatsApp" or "Design Uber", and solve it from start to end.
+
+This is good practice. But there are hundreds of such problems, and nobody can remember the full solution for each one.
+
+</div>
+
+<div class="dsp-compare__card dsp-compare__card--ours" markdown>
+
+<p class="dsp-compare__label">The approach here</p>
+
+Take one **hard problem** that many apps share, and understand it properly: why it is hard, which pattern solves it, and which well-known software uses that pattern.
+
+Learn it once, and use it in every app you build.
+
+</div>
+
+</div>
+
+### Every app has only a few hard parts
+
+Look closely at any real design and you will notice something. Most of the application is straightforward: APIs, screens, tables in a database, a few background jobs. Only a few parts are really hard, and those parts decide whether the system works or fails.
+
+These hard parts are not special to your app. The same problems come up again and again, in apps that look nothing like each other:
+
+| Where you see it | The hard part | The pattern | Who uses it |
+|------------------|---------------|-------------|-------------|
+| A UPI payment page | The user taps **Pay** twice, or the app retries after a timeout. The money must move only once. | Idempotency keys | Stripe's API |
+| A job scheduler | Two servers both think they are the leader, and the billing job runs twice. | [Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md), leases | etcd, ZooKeeper, Kafka |
+| A food delivery order | Order, payment and restaurant are in different services. If one step fails, the others must be undone. | Sagas, transactional outbox | Temporal, Debezium |
+| A public API | One client sends too many requests and slows down everyone else. | Rate limiting | Envoy, NGINX |
+| Any app with crores of users | The data no longer fits in one database. | Sharding, consistent hashing | Cassandra, DynamoDB |
+| A cab or delivery app | Find the drivers near me, quickly. | Geohashes, quadtrees | Redis, Elasticsearch |
+| A shared document | Two people edit the same line at the same time. | CRDTs, operational transformation | Google Docs, Yjs, Automerge |
+
+So this guide does one thing: it **collects these hard pieces in one place**. For each piece, you learn three things:
+
+1. **The problem.** What goes wrong, and why the simple fixes do not work.
+2. **The software.** Which well-known systems use this piece, and how. Once you know this, you can pick the right tool instead of building it yourself.
+3. **The reuse.** How to apply the same piece in your own designs.
+
+### How to use this guide
+
+- **Read for the problem, not for the app.** The bank transfer or job scheduler in a lesson is only an example. Remember the problem; it will come back in a different app.
+- **Note which software uses each piece.** Next time you see etcd, Kafka or Redis in an architecture, you will know exactly what job it is doing there.
+- **When you face a new design, split it first.** Separate the straightforward parts from the hard parts. For each hard part, ask: "Which piece from this guide solves this?" Most of the time, the answer is already here.
+
+You don't need to be an expert. If you have built a backend service and used a database, you have everything you need to start.
 
 ## The roadmap { #roadmap }
 
