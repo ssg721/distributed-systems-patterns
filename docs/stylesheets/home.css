@@ -320,44 +320,6 @@
   color: var(--dsp-c1);
 }
 
-/* ---------- Steps ---------- */
-
-.md-typeset .dsp-steps {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 1.2rem 0;
-  counter-reset: none;
-}
-.md-typeset .dsp-step {
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--dsp-border);
-  border-radius: 0.75rem;
-  background: var(--dsp-surface);
-}
-.md-typeset .dsp-step p {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--md-default-fg-color--light);
-}
-.md-typeset .dsp-step p strong {
-  font-size: 0.85rem;
-  color: var(--md-default-fg-color);
-}
-.md-typeset .dsp-step__num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: 50%;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--md-default-bg-color);
-  background: var(--dsp-c1);
-}
-
 /* ---------- Closing call to action ---------- */
 
 .md-typeset .dsp-cta {
@@ -387,16 +349,10 @@
   .md-typeset .dsp-hero__art svg {
     max-width: 17rem;
   }
-  .md-typeset .dsp-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media screen and (max-width: 30em) {
   .md-typeset .dsp-hero h1 {
     font-size: 1.9rem;
-  }
-  .md-typeset .dsp-steps {
-    grid-template-columns: 1fr;
   }
 }

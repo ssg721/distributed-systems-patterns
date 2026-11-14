@@ -162,48 +162,6 @@ How can many people edit the same document at once, even offline, and still end 
 
 </div>
 
-## How every topic is told
-
-<p class="dsp-section-lead">Patterns are easy to recite and hard to apply. So each topic is built from the problem up, not from the definition down.</p>
-
-<div class="dsp-steps" markdown>
-
-<div class="dsp-step" markdown>
-<span class="dsp-step__num">1</span>
-
-**A concrete situation**
-
-A real system, such as a bank transfer or a job scheduler, with a real failure.
-</div>
-
-<div class="dsp-step" markdown>
-<span class="dsp-step__num">2</span>
-
-**The obvious fixes break**
-
-Each attempt fails in one specific, memorable way.
-</div>
-
-<div class="dsp-step" markdown>
-<span class="dsp-step__num">3</span>
-
-**The pattern, rule by rule**
-
-Every rule fixes one of the breaks you just saw.
-</div>
-
-<div class="dsp-step" markdown>
-<span class="dsp-step__num">4</span>
-
-**The pattern in production**
-
-Where etcd, Kafka, Spanner and others use it, and the lesson for your own designs.
-</div>
-
-</div>
-
-The aim is that you could re-derive the pattern on a whiteboard, and spot when a design needs it, long after you've forgotten the exact wording.
-
 <div class="dsp-cta" markdown>
 
 **New here?** The consensus history is the best place to start.
