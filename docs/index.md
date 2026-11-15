@@ -46,7 +46,10 @@ hide:
 
 ## Why this guide { #why }
 
-<p class="dsp-section-lead">Most system design courses teach you one app at a time. This guide teaches you the few hard pieces that every app keeps needing.</p>
+
+<p class="dsp-section-lead">When you study system design today, concepts like leases and fencing tokens look like clean, elegant lines of code in a textbook. It is easy to take them for granted, assuming engineers designed them perfectly from day one.</p>
+
+<p class="dsp-section-lead">In reality, these patterns were forged through years of painful production outages, split-brain scenarios, and silent data corruption. Understanding why they evolved the way they did is one of the best ways to train your engineering intuition for distributed systems.</p>
 
 <div class="dsp-compare" markdown>
 
@@ -183,72 +186,6 @@ How can many people edit the same document at once, even offline, and still end 
 </div>
 
 <p class="dsp-legend"><span class="dsp-chip dsp-chip--done">Available</span> <span class="dsp-chip dsp-chip--next">Coming next</span> <span class="dsp-chip">Planned</span></p>
-
-## Start here: Consensus
-
-<p class="dsp-section-lead">The foundation of almost everything else. Read the three pages in order, or jump to whichever question you have.</p>
-
-<div class="grid cards dsp-path" markdown>
-
--   :lucide-history:{ .lg .middle } **1. How consensus evolved**
-
-    ---
-
-    From Paxos to PBFT to Raft: which problem each protocol solved, what it left open, and where it runs today.
-
-    [:lucide-arrow-right: Read the history](01-coordination-and-consistency/01-consensus/01-evolution.md)
-
--   :lucide-book-open:{ .lg .middle } **2. Why consensus? A story**
-
-    ---
-
-    Start with one bank transfer and three simple designs. Break each one, and rebuild Raft from the pieces.
-
-    [:lucide-arrow-right: Read the story](01-coordination-and-consistency/01-consensus/02-why-consensus.md)
-
--   :lucide-building-2:{ .lg .middle } **3. Consensus in real systems**
-
-    ---
-
-    How etcd, Kafka, CockroachDB, Spanner, DynamoDB and others use consensus, and how little of their data they put through it.
-
-    [:lucide-arrow-right: Tour the systems](01-coordination-and-consistency/01-consensus/03-real-world-systems.md)
-
-</div>
-
-## New: Leases and fencing tokens
-
-<p class="dsp-section-lead">When you study system design today, concepts like leases and fencing tokens look like clean, elegant lines of code in a textbook. It is easy to take them for granted, assuming engineers designed them perfectly from day one.</p>
-
-<p class="dsp-section-lead">In reality, these patterns were forged through years of painful production outages, split-brain scenarios, and silent data corruption. Understanding why they evolved the way they did is one of the best ways to train your engineering intuition for distributed systems.</p>
-
-<div class="grid cards dsp-path" markdown>
-
--   :lucide-history:{ .lg .middle } **1. How leases and fencing evolved**
-
-    ---
-
-    From plain locks to leases, STONITH and fencing tokens: which failure each step fixed.
-
-    [:lucide-arrow-right: Read the history](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md)
-
--   :lucide-book-open:{ .lg .middle } **2. Why leases and fencing tokens? A story**
-
-    ---
-
-    One nightly payout job, a server that freezes mid-run, and the rules that stop a restaurant from being paid twice.
-
-    *Coming next*
-
--   :lucide-building-2:{ .lg .middle } **3. Leases and fencing in real systems**
-
-    ---
-
-    How Chubby, ZooKeeper, etcd, Kafka and Kubernetes hand out ownership, and where they leave the fencing to you.
-
-    *Coming next*
-
-</div>
 
 <div class="dsp-cta" markdown>
 
