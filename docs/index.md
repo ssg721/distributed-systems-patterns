@@ -81,7 +81,7 @@ These hard parts are not special to your app. The same problems come up again an
 | Where you see it | The hard part | The pattern | Who uses it |
 |------------------|---------------|-------------|-------------|
 | A UPI payment page | The user taps **Pay** twice, or the app retries after a timeout. The money must move only once. | Idempotency keys | Stripe's API |
-| A job scheduler | Two servers both think they are the leader, and the billing job runs twice. | [Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md), leases | etcd, ZooKeeper, Kafka |
+| A job scheduler | Two servers both think they are the leader, and the billing job runs twice. | [Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md), [leases](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md) | etcd, ZooKeeper, Kafka |
 | A food delivery order | Order, payment and restaurant are in different services. If one step fails, the others must be undone. | Sagas, transactional outbox | Temporal, Debezium |
 | A public API | One client sends too many requests and slows down everyone else. | Rate limiting | Envoy, NGINX |
 | Any app with crores of users | The data no longer fits in one database. | Sharding, consistent hashing | Cassandra, DynamoDB |
@@ -116,7 +116,7 @@ You don't need to be an expert. If you have built a backend service and used a d
 
 How do several machines act like one correct machine, when any of them can crash and the network can lose or delay messages?
 
-<p class="dsp-chips" markdown="span">[Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md){ .dsp-chip .dsp-chip--done } <span class="dsp-chip dsp-chip--next">Leases and fencing tokens</span> <span class="dsp-chip">Quorum reads and writes</span> <span class="dsp-chip">Logical clocks</span> <span class="dsp-chip">Two-phase commit vs sagas</span> <span class="dsp-chip">Transactional outbox and CDC</span> <span class="dsp-chip">Idempotency keys</span></p>
+<p class="dsp-chips" markdown="span">[Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md){ .dsp-chip .dsp-chip--done } [Leases and fencing tokens](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md){ .dsp-chip .dsp-chip--next } <span class="dsp-chip">Quorum reads and writes</span> <span class="dsp-chip">Logical clocks</span> <span class="dsp-chip">Two-phase commit vs sagas</span> <span class="dsp-chip">Transactional outbox and CDC</span> <span class="dsp-chip">Idempotency keys</span></p>
 
 </div>
 
@@ -213,6 +213,40 @@ How can many people edit the same document at once, even offline, and still end 
     How etcd, Kafka, CockroachDB, Spanner, DynamoDB and others use consensus, and how little of their data they put through it.
 
     [:lucide-arrow-right: Tour the systems](01-coordination-and-consistency/01-consensus/03-real-world-systems.md)
+
+</div>
+
+## New: Leases and fencing tokens
+
+<p class="dsp-section-lead">When you study system design today, concepts like leases and fencing tokens look like clean, elegant lines of code in a textbook. It is easy to take them for granted, assuming engineers designed them perfectly from day one.</p>
+
+<p class="dsp-section-lead">In reality, these patterns were forged through years of painful production outages, split-brain scenarios, and silent data corruption. Understanding why they evolved the way they did is one of the best ways to train your engineering intuition for distributed systems.</p>
+
+<div class="grid cards dsp-path" markdown>
+
+-   :lucide-history:{ .lg .middle } **1. How leases and fencing evolved**
+
+    ---
+
+    From plain locks to leases, STONITH, Chubby's sequencers and fencing tokens: which failure each step fixed, and which one it left behind.
+
+    [:lucide-arrow-right: Read the history](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md)
+
+-   :lucide-book-open:{ .lg .middle } **2. Why leases and fencing tokens? A story**
+
+    ---
+
+    One nightly payout job, a server that freezes mid-run, and the rules that stop a restaurant from being paid twice.
+
+    *Coming next*
+
+-   :lucide-building-2:{ .lg .middle } **3. Leases and fencing in real systems**
+
+    ---
+
+    How Chubby, ZooKeeper, etcd, Kafka and Kubernetes hand out ownership, and where they leave the fencing to you.
+
+    *Coming next*
 
 </div>
 

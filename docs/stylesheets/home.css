@@ -310,6 +310,13 @@
 .md-typeset .dsp-chip--next::before {
   background: var(--dsp-next);
 }
+.md-typeset a.dsp-chip--next:hover {
+  color: var(--md-default-bg-color);
+  background: var(--dsp-next);
+}
+.md-typeset a.dsp-chip--next:hover::before {
+  background: var(--md-default-bg-color);
+}
 
 /* ---------- Consensus path cards ---------- */
 
