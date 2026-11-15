@@ -14,7 +14,10 @@ Each pattern starts from a concrete system that fails, tries the obvious fixes, 
     1. [How consensus evolved: Paxos, PBFT, Raft](docs/01-coordination-and-consistency/01-consensus/01-evolution.md)
     2. [Why consensus? A story](docs/01-coordination-and-consistency/01-consensus/02-why-consensus.md)
     3. [Consensus in real systems](docs/01-coordination-and-consistency/01-consensus/03-real-world-systems.md)
-- Leases and fencing tokens *(coming next)*
+- **Leases and fencing tokens**
+    1. [How leases and fencing evolved](docs/01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md)
+    2. Why leases and fencing tokens? A story *(coming next)*
+    3. Leases and fencing in real systems *(coming next)*
 - Quorum reads and writes *(planned)*
 - Logical clocks *(planned)*
 - Two-phase commit vs sagas *(planned)*

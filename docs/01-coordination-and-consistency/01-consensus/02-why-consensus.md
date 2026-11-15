@@ -1,19 +1,17 @@
-# Why consensus? A story
+# Why consensus?
 
 ---
 
 ## The setup
 
-User A sends ₹100 to user B. Our bank keeps balances in Postgres.
-
 A single Postgres machine is a single point of failure. If it crashes, nobody can send money. If its disk dies, money is lost. So we want **several copies of the same data on different machines**.
-
-Two words that are easy to mix up:
 
 - **Sharding** splits the data. Users A–M live on one machine, N–Z on another. That helps when the data or traffic is too big for one machine, but it doesn't protect against a machine dying. If shard 7 dies, everyone on shard 7 is stuck.
 - **Replication** keeps copies of the *same* data. That is what protects you when a machine dies.
 
 Real systems do both: shard for size, then replicate every shard. This page is about replication: how several copies of the same data stay in agreement.
+
+User A sends ₹100 to user B. Our bank keeps balances in Postgres.
 
 **The goal:** a transfer we confirmed is never lost and never applied twice, even when machines crash, freeze, or the network misbehaves.
 
@@ -125,8 +123,6 @@ Make the app servers stateless. Every transfer is first appended to a **write-ah
 
 To pick who is in charge, use the same storage.
 
-### The story
-
 Two stateless app servers receive two transfers at the same moment. Server X gets "A sends ₹100 to B". Server Y gets "A sends ₹100 to C". A has only ₹100. Both append to the shared log.
 
 ### Where it breaks
@@ -156,8 +152,6 @@ We now know exactly what is missing: **a small group of machines that can agree 
 
 ## Rule 1: A write counts once a majority has it
 
-### The story
-
 Three machines hold the log. Waiting for all three fails as soon as one is down (Attempt 1). Trusting just one loses data when that one dies (Attempt 2). So try the middle: an entry is **committed** once 2 of the 3 machines have stored it.
 
 Why 2? Take any two groups of 2 machines out of 3, such as {1, 2} and {2, 3}, or {1, 3} and {1, 2}. They always share at least one machine. **Any two majorities overlap.**
@@ -174,8 +168,6 @@ So say transfer #42 was stored on a majority. Later some machines crash and a di
 ---
 
 ## Rule 2: Elect the leader by majority vote, and number every election
-
-### The story
 
 Someone still has to put entries in order (Attempt 3 showed that two writers can't). So there is one leader. When it dies, the others need a new one, and Attempts 2 and 3 showed that no outside switch can safely choose it. So the machines choose it themselves, by voting:
 

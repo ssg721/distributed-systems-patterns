@@ -1,6 +1,6 @@
 # How consensus evolved: Paxos, PBFT, Raft
 
-> For forty years, people have asked one question: **how do several machines agree on one thing when some of them may fail?** Each protocol on this page is an answer to a version of that question that the previous answer left open.
+> **how do several machines agree on one thing when some of them may fail?** Each protocol on this page is an answer to a version of that question.
 
 You don't need to know any of these algorithms to read this page. The goal is the shape of the story: which problem each protocol solved, what it left unsolved, and where you will find it running today. When you want to see *why* any of this is needed, built up from a single bank transfer, read [Why consensus?](02-why-consensus.md).
 
@@ -8,36 +8,12 @@ You don't need to know any of these algorithms to read this page. The goal is th
 
 | Year | What happened | The question it answered |
 |------|---------------|--------------------------|
-| 1978 | Lamport describes replicating a service as "run the same commands in the same order" | What does it mean to replicate something? |
-| 1982 | The Byzantine Generals problem | What if some machines lie? |
-| 1985 | The FLP impossibility result | Can agreement *always* finish? (No.) |
-| 1988 | Partial synchrony; Viewstamped Replication | What can we promise instead? |
 | 1989–98 | **Paxos** is written, ignored, then published | How do we agree safely when machines crash? |
 | 1999 | **PBFT** | How do we agree when machines can lie, fast enough to use? |
 | 2006–11 | Chubby, *Paxos Made Live*, ZooKeeper | What does it take to run this in production? |
 | 2014 | **Raft** | Can consensus be easy to understand and build? |
 | 2014–19 | Tendermint, HotStuff | Can Byzantine agreement scale to blockchains? |
 
-Read each chapter below the same way: **the question of its time, the idea, where it went, and what it left open.**
-
----
-
-## Before the algorithms: naming the problem (1978–1988)
-
-Four results from this decade set the rules every later protocol plays by. You don't need the proofs, only what each one means.
-
-**1978: Replication is agreement on order.** Leslie Lamport observed that if every machine starts in the same state and applies the same commands in the same order, every machine ends in the same state, as long as the commands are deterministic. This turns "keep copies of a service in sync" into a narrower question: "agree on the next command in the log." This idea later became known as **state machine replication**, and every protocol on this page is a way of doing it.
-
-**1982: Some failures are lies.** Lamport, Robert Shostak and Marshall Pease framed the *Byzantine Generals* problem: generals must agree on a battle plan by messenger, but some generals are traitors who send different messages to different people. They proved that with plain messages you need more than two-thirds of the generals to be loyal. It was a sobering result, and their solutions assumed messages arrive within known time limits, so it stayed mostly theory for years.
-
-**1985: Agreement can't be guaranteed to finish.** Michael Fischer, Nancy Lynch and Michael Paterson proved that in a fully asynchronous network, where a message can take any amount of time, **no deterministic algorithm can guarantee that agreement always completes if even one machine may crash.** This is the FLP result. The intuition is the one we hit in the bank story: a machine that is slow looks exactly like one that is dead, so you can never be sure whether to keep waiting.
-
-**1988: The way out.** Cynthia Dwork, Nancy Lynch and Larry Stockmeyer showed what you *can* do. Assume the network is "partially synchronous": it may misbehave for a while, but eventually behaves well. Then you can build algorithms that are **always safe**, never giving two different answers, and that **make progress once the network calms down.**
-
-!!! tip "The deal every protocol makes"
-    Every algorithm on this page accepts the same trade-off FLP forces on it: **safety always, liveness when the network cooperates.** When the network is bad, a correct consensus system stops making progress. It never makes a wrong decision.
-
----
 
 ## Paxos: the safe core (1989–2001)
 
@@ -45,27 +21,39 @@ Four results from this decade set the rules every later protocol plays by. You d
 
 Machines crash and restart, and messages get lost, delayed or duplicated, but nobody lies. Can a group still agree on a value, and never contradict itself, no matter how badly timed the failures are?
 
-### The story
+1. **The Echo File System**: In the late 1980s, researchers at Digital Equipment Corporation’s (DEC) Systems Research Center were building a fault-tolerant file system called Echo. They claimed they had designed a protocol that could maintain consistency through arbitrary non-Byzantine failures (Crash Faults or Fail-Stop/Fail-Recovery failures) as long as a majority of processors were working. Leslie Lamport set out to prove them wrong by showing that reaching consensus reliably in an asynchronous network was fundamentally impossible—only to accidentally discover a protocol that made it possible instead.   
+Microsoft
+2. **The Fictional Greek Island**: Amused (and perhaps slightly frustrated) by how difficult it was for other engineers to understand distributed consensus, Lamport wrote the algorithm up as an elaborate archaeological spoof. He framed it as a historical paper detailing the parliamentary system of an imaginary Greek island called Paxos, where legislators wandered in and out of the chamber ("peripatetic propensity") and communicated only via unreliable messengers.   
+Wikipedia
+3. **The Publication Delay**: He submitted the paper in 1990. Reviewers found the Greek legislative allegory baffling and refused to accept it unless he removed the fiction. Lamport refused to change the story, so the paper sat in limbo for years, eventually getting published as "The Part-Time Parliament" in 1998 (though it had circulated internally as a DEC report since 1989).   
+Microsoft
+4. **Paxos Made Simple**: Because people still struggled to cut through the Greek island metaphor to understand the raw computer science, Lamport finally yielded years later and published "Paxos Made Simple" in 2001, stripping away all the legislators, ledgers, and island lore to explain the algorithm plainly.
 
-In the late 1980s, colleagues of Lamport at Digital Equipment Corporation's research lab were building a fault-tolerant file system called Echo. Lamport set out to show that what they wanted was impossible, and ended up with an algorithm instead.
-
-He wrote it up as an archaeological report about the parliament of an imaginary Greek island called Paxos, whose part-time legislators kept wandering in and out of the chamber, yet still kept consistent ledgers of the laws they passed. He submitted it in 1990. Reviewers found the allegory baffling, and the paper sat unpublished for eight years. *The Part-Time Parliament* finally appeared in 1998, and in 2001 Lamport rewrote it without the story as *Paxos Made Simple*.
 
 ### The idea in plain words
 
-Paxos agrees on **one value**. Any node may *propose* a value, and a group of *acceptors* votes. A proposal goes through two phases:
+1. **The Core Idea: Agreement Without a Boss**
+   Imagine a group of friends trying to decide on a restaurant for dinner. Anyone can suggest a place, but they need a foolproof way to make sure everyone agrees on one choice, even if people are texting at different times, losing cell service, or trying to change the plan. That is what Paxos solves.
+2. The Two Phases
+   Every time Paxos wants to agree on a single decision (or "slot" in a log), it uses a two-step process:
+   **Step 1: The "Prepare" Phase (Checking the Room)**
+   A proposer steps up and shouts: "I want to pitch an idea using Proposal #5. Everyone promise me you won't accept any older proposals, and tell me if you already agreed to anything else!"
+   If a majority of people agree to this, the proposer has successfully taken control.
+   **Step 2: The "Accept" Phase (Locking It In)**
+   The Golden Rule: If anyone in that majority tells the proposer, "Hey, we already accepted Proposal #3 earlier," the proposer is not allowed to push its own new idea anymore. It must take Proposal #3 and push that instead.
+   If nobody accepted anything yet, the proposer can push its own idea. Once a majority votes "Yes" to accept it, the decision is officially locked in (chosen).
+   
+3. **Why Does It Never Fail? (The Magic of Majorities)**
+   The safety of Paxos relies entirely on math and overlapping groups:
+   Overlapping Majorities: If you have 5 people, a majority is 3. Any two groups of 3 people will always share at least one overlapping person.
+   Because of this overlap, any new proposer is guaranteed to bump into someone who already knows what the previous proposer did. That shared person acts as a bridge, ensuring a new leader can never accidentally overwrite a decision that was already made.
+   
+4. Moving From One Decision to a Whole Log (Multi-Paxos)
+   Basic Paxos only solves one decision at a time. Doing Phase 1 (the Prepare step) for every single transaction would be painfully slow.
 
-1. **Prepare.** The proposer picks a ballot number higher than any it has used and asks a majority of acceptors: *"Promise to ignore anything with a lower ballot, and tell me if you have already accepted a value."*
-2. **Accept.** If a majority promises, the proposer asks them to accept a value. There is one strict rule: **if any acceptor reported an earlier accepted value, the proposer must propose that value, not its own.**
-
-A value is *chosen* once a majority has accepted it.
-
-Two ideas carry all the safety:
-
-- **Majorities overlap.** Any two majorities share at least one acceptor. So any later proposer's phase 1 will reach at least one acceptor that knows about a value that might already be chosen.
-- **Phase 1 is about taking over safely.** It fences out older proposers through the ballot number and discovers what may already have been decided, so the new proposer finishes the job instead of overwriting it.
-
-Real systems need a sequence of values, a log, not one. **Multi-Paxos** runs one Paxos instance per log slot and keeps a stable leader, which runs phase 1 once and then needs only phase 2, a single round trip, for each new entry.
+### Multi-Paxos fixes this by electing a stable leader:
+   The leader runs Phase 1 just once to take charge.
+   After that, for every new piece of data or transaction that comes in, it skips Phase 1 entirely and instantly jumps to Phase 2 (a quick single round-trip vote).
 
 ### What it got right
 
@@ -142,7 +130,6 @@ By the early 2010s, consensus was clearly essential infrastructure, but every se
 
 Could a consensus algorithm be as safe and efficient as Multi-Paxos, but **easy to understand, and complete enough to build directly from the paper?**
 
-### The story
 
 At Stanford, Diego Ongaro and John Ousterhout made understandability the primary design goal, an unusual choice for an algorithms paper. Their paper, *In Search of an Understandable Consensus Algorithm*, won Best Paper at USENIX ATC 2014. They tested the claim directly. In a study with 43 students at two universities who learned both algorithms, 33 answered questions about Raft better than questions about Paxos.
 
@@ -217,10 +204,8 @@ flowchart LR
 
 ## Read the originals
 
-In a sensible order, from gentlest to deepest:
-
-1. [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf), Ongaro and Ousterhout, 2014. Start here.
-2. [Paxos Made Simple](https://lamport.azurewebsites.net/pubs/paxos-simple.pdf), Lamport, 2001. Short, and much easier after Raft.
+1. [In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf), Ongaro and Ousterhout, 2014.
+2. [Paxos Made Simple](https://lamport.azurewebsites.net/pubs/paxos-simple.pdf), Lamport, 2001. Short, and much easier.
 3. *Paxos Made Live: An Engineering Perspective*, Chandra, Griesemer and Redstone, 2007. What production adds.
 4. [Practical Byzantine Fault Tolerance](https://pmg.csail.mit.edu/papers/osdi99.pdf), Castro and Liskov, 1999.
 5. *Viewstamped Replication Revisited*, Liskov and Cowling, 2012. VR, rewritten clearly.
