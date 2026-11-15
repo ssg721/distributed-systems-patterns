@@ -46,7 +46,9 @@ hide:
 
 ## Why this guide { #why }
 
-<p class="dsp-section-lead">Most system design courses teach you one app at a time. This guide teaches you the few hard pieces that every app keeps needing.</p>
+<p class="dsp-section-lead">When you study system design today, patterns like consensus, sharding and rate limiting look like clean, elegant lines of code in a textbook. It is easy to take them for granted, assuming engineers designed them perfectly from day one.</p>
+
+<p class="dsp-section-lead">In reality, these patterns were forged through years of painful production outages, double payments, and silent data corruption. Understanding why they evolved the way they did is one of the best ways to train your engineering intuition for distributed systems.</p>
 
 <div class="dsp-compare" markdown>
 
@@ -80,13 +82,13 @@ These hard parts are not special to your app. The same problems come up again an
 
 | Where you see it | The hard part | The pattern | Who uses it |
 |------------------|---------------|-------------|-------------|
-| A UPI payment page | The user taps **Pay** twice, or the app retries after a timeout. The money must move only once. | Idempotency keys | Stripe's API |
-| A job scheduler | Two servers both think they are the leader, and the billing job runs twice. | [Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md), [leases](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md) | etcd, ZooKeeper, Kafka |
-| A food delivery order | Order, payment and restaurant are in different services. If one step fails, the others must be undone. | Sagas, transactional outbox | Temporal, Debezium |
-| A public API | One client sends too many requests and slows down everyone else. | Rate limiting | Envoy, NGINX |
-| Any app with crores of users | The data no longer fits in one database. | Sharding, consistent hashing | Cassandra, DynamoDB |
-| A cab or delivery app | Find the drivers near me, quickly. | Geohashes, quadtrees | Redis, Elasticsearch |
-| A shared document | Two people edit the same line at the same time. | CRDTs, operational transformation | Google Docs, Yjs, Automerge |
+| A UPI payment | You tap **Pay** twice. The money must move once. | Idempotency keys | Stripe |
+| A job scheduler | Two servers both think they are the leader. The billing job runs twice. | [Consensus](01-coordination-and-consistency/01-consensus/01-evolution.md), [leases](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md) | etcd, ZooKeeper, Kafka |
+| A food delivery order | The payment succeeded, then the restaurant rejected the order. Now undo the payment. | Sagas, transactional outbox | Temporal, Debezium |
+| A public API | One client sends too many requests. Everyone else slows down. | Rate limiting | Envoy, NGINX |
+| An app with crores of users | The data no longer fits on one machine. | Sharding, consistent hashing | Cassandra, DynamoDB |
+| A cab app | Out of lakhs of drivers, find the five nearest to you. | Geohashes, quadtrees | Redis, Google S2 |
+| A shared document | Two people type on the same line at the same moment. | CRDTs, operational transformation | Google Docs, Yjs, Automerge |
 
 So this guide does one thing: it **collects these hard pieces in one place**. For each piece, you learn three things:
 
@@ -98,7 +100,7 @@ So this guide does one thing: it **collects these hard pieces in one place**. Fo
 
 - **Read for the problem, not for the app.** The bank transfer or job scheduler in a lesson is only an example. Remember the problem; it will come back in a different app.
 - **Note which software uses each piece.** Next time you see etcd, Kafka or Redis in an architecture, you will know exactly what job it is doing there.
-- **When you face a new design, split it first.** Separate the straightforward parts from the hard parts. For each hard part, ask: "Which piece from this guide solves this?" Most of the time, the answer is already here.
+- **When you face a new design, split it first.** Separate the straightforward parts from the hard parts. For each hard part, ask: "Which piece from this guide solves this?" Often, the answer is one of the pieces on the roadmap below.
 
 You don't need to be an expert. If you have built a backend service and used a database, you have everything you need to start.
 
@@ -128,7 +130,7 @@ How do several machines act like one correct machine, when any of them can crash
 
 How do you spread data across machines, keep extra copies, and still find any record quickly?
 
-<p class="dsp-chips" markdown="span"><span class="dsp-chip">Consistent hashing</span> <span class="dsp-chip">Sharding</span> <span class="dsp-chip">Replication models</span> <span class="dsp-chip">LSM trees vs B-trees</span> <span class="dsp-chip">Event sourcing</span> <span class="dsp-chip">Snowflake IDs</span></p>
+<p class="dsp-chips" markdown="span"><span class="dsp-chip">Consistent hashing</span> <span class="dsp-chip">Sharding</span> <span class="dsp-chip">Replication models</span> <span class="dsp-chip">LSM trees vs B-trees</span> <span class="dsp-chip">Event sourcing</span> <span class="dsp-chip">Unique ID generation</span></p>
 
 </div>
 
@@ -138,9 +140,9 @@ How do you spread data across machines, keep extra copies, and still find any re
 
 ### Probabilistic and specialized data structures
 
-How do you answer questions about huge data sets with very little memory, when "almost exact" is good enough?
+How do you answer one specific question about huge data, quickly and in very little memory? Sometimes "almost exact" is good enough.
 
-<p class="dsp-chips" markdown="span"><span class="dsp-chip">Bloom filters</span> <span class="dsp-chip">HyperLogLog</span> <span class="dsp-chip">Count-Min Sketch</span> <span class="dsp-chip">Merkle trees</span> <span class="dsp-chip">Geohashes and quadtrees</span></p>
+<p class="dsp-chips" markdown="span"><span class="dsp-chip">Bloom filters</span> <span class="dsp-chip">HyperLogLog</span> <span class="dsp-chip">Count-Min Sketch</span> <span class="dsp-chip">Merkle trees</span> <span class="dsp-chip">Geohashes and quadtrees</span> <span class="dsp-chip">Inverted indexes</span></p>
 
 </div>
 
@@ -162,7 +164,7 @@ How do you stop one slow or overloaded component from taking the whole system do
 
 ### Real-time and messaging
 
-How do you get events to the right place, quickly, without losing any or delivering them twice?
+How do you get events to the right place, quickly, without losing any, and without acting on one twice?
 
 <p class="dsp-chips" markdown="span"><span class="dsp-chip">Fan-out</span> <span class="dsp-chip">WebSockets and SSE</span> <span class="dsp-chip">Queues and dead-letter queues</span> <span class="dsp-chip">Delayed jobs</span></p>
 
@@ -183,72 +185,6 @@ How can many people edit the same document at once, even offline, and still end 
 </div>
 
 <p class="dsp-legend"><span class="dsp-chip dsp-chip--done">Available</span> <span class="dsp-chip dsp-chip--next">Coming next</span> <span class="dsp-chip">Planned</span></p>
-
-## Start here: Consensus
-
-<p class="dsp-section-lead">The foundation of almost everything else. Read the three pages in order, or jump to whichever question you have.</p>
-
-<div class="grid cards dsp-path" markdown>
-
--   :lucide-history:{ .lg .middle } **1. How consensus evolved**
-
-    ---
-
-    From Paxos to PBFT to Raft: which problem each protocol solved, what it left open, and where it runs today.
-
-    [:lucide-arrow-right: Read the history](01-coordination-and-consistency/01-consensus/01-evolution.md)
-
--   :lucide-book-open:{ .lg .middle } **2. Why consensus? A story**
-
-    ---
-
-    Start with one bank transfer and three simple designs. Break each one, and rebuild Raft from the pieces.
-
-    [:lucide-arrow-right: Read the story](01-coordination-and-consistency/01-consensus/02-why-consensus.md)
-
--   :lucide-building-2:{ .lg .middle } **3. Consensus in real systems**
-
-    ---
-
-    How etcd, Kafka, CockroachDB, Spanner, DynamoDB and others use consensus, and how little of their data they put through it.
-
-    [:lucide-arrow-right: Tour the systems](01-coordination-and-consistency/01-consensus/03-real-world-systems.md)
-
-</div>
-
-## New: Leases and fencing tokens
-
-<p class="dsp-section-lead">When you study system design today, concepts like leases and fencing tokens look like clean, elegant lines of code in a textbook. It is easy to take them for granted, assuming engineers designed them perfectly from day one.</p>
-
-<p class="dsp-section-lead">In reality, these patterns were forged through years of painful production outages, split-brain scenarios, and silent data corruption. Understanding why they evolved the way they did is one of the best ways to train your engineering intuition for distributed systems.</p>
-
-<div class="grid cards dsp-path" markdown>
-
--   :lucide-history:{ .lg .middle } **1. How leases and fencing evolved**
-
-    ---
-
-    From plain locks to leases, STONITH and fencing tokens: which failure each step fixed.
-
-    [:lucide-arrow-right: Read the history](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md)
-
--   :lucide-book-open:{ .lg .middle } **2. Why leases and fencing tokens? A story**
-
-    ---
-
-    One nightly payout job, a server that freezes mid-run, and the rules that stop a restaurant from being paid twice.
-
-    *Coming next*
-
--   :lucide-building-2:{ .lg .middle } **3. Leases and fencing in real systems**
-
-    ---
-
-    How Chubby, ZooKeeper, etcd, Kafka and Kubernetes hand out ownership, and where they leave the fencing to you.
-
-    *Coming next*
-
-</div>
 
 <div class="dsp-cta" markdown>
 

@@ -16,7 +16,7 @@ In the early days of distributed computing, engineers tried the most intuitive a
 
 ## Phase 2: Time as an Ally (Leases, 1989)
 
-To solve the dead-client problem, computer scientists Cary Gray and David Cheriton published a landmark SOSP paper in 1989 introducing the concept of a lease.
+To solve the dead-client problem, computer scientists Cary Gray and David Cheriton published a landmark SOSP paper in 1989 introducing the concept of a lease. Their paper used leases to keep cached files consistent between a file server and its clients. The same idea works for locks and leadership.
 
 **The Breakthrough:** Instead of an indefinite lock, the lock server grants a time-bounded privilege: "You are the leader for the next 10 seconds."
 
@@ -48,11 +48,13 @@ Before software guardrails became standard, High Availability (HA) clusters solv
 
 **Why it Evolved:** It successfully prevented split-brain corruption by ensuring the old node literally could not write anything anywhere.
 
-**The Drawback:** It required specialized, expensive hardware infrastructure and heavy-handed administrative intervention.
+**The Drawback:** It needs a fencing device for every node, such as a management card, a power switch or storage that can cut a node off. So it only works on machines you control.
+
+**Still in Use:** STONITH did not go away. HA clusters built on Pacemaker depend on it today, and Red Hat [does not support](https://access.redhat.com/node/109603) a Pacemaker cluster that runs with `stonith-enabled=false`.
 
 ## Phase 5: Elegant Software Fencing (Monotonic Fencing Tokens)
 
-Modern distributed coordination systems—like Apache ZooKeeper, Google Chubby, and etcd—replaced hardware executioners with an elegant mathematical solution: software fencing tokens.
+Modern distributed coordination systems—like Apache ZooKeeper, Google Chubby, and etcd—added an elegant software alternative to hardware executioners: fencing tokens.
 
 **The Mechanism:** Every time a lease or lock is granted, the coordination service increments a monotonic counter (e.g., transaction ID, zxid, or epoch number). If Node A held lease #5 and got paused, and Node B takes over as lease #6, every write request carries that token number.
 
@@ -63,8 +65,16 @@ Modern distributed coordination systems—like Apache ZooKeeper, Google Chubby, 
 - The lease decides who should be acting.
 - The fencing token ensures that if a stale leader wakes up from a zombie state, the storage layer ignores it.
 
+**The Catch:** The token only works if the storage checks it on every write and rejects older tokens. If the storage cannot do this check, the stale write still goes through, and you are back to the problem of Phase 3.
+
 | Concept | What It Does | Primary Failure Mode It Solves |
 |---------|--------------|--------------------------------|
-| Plain Locks | Grants exclusive access until released. | Crashed nodes causing permanent deadlocks. |
-| Leases | Grants exclusive access for a fixed time window. | Waiting indefinitely for dead nodes via auto-expiration. |
+| Plain Locks | Grants exclusive access until released. | Two nodes using the same resource at the same time. |
+| Leases | Grants exclusive access for a fixed time window. | A crashed holder keeping the lock forever. |
 | Fencing Tokens | Attaches an increasing sequence number to every write. | Zombie/paused leaders writing stale data (split-brain). |
+
+## Read the originals
+
+1. [Leases: An Efficient Fault-Tolerant Mechanism for Distributed File Cache Consistency](https://doi.org/10.1145/74850.74870), Gray and Cheriton, 1989. The paper that introduced leases.
+2. *The Chubby Lock Service for Loosely-Coupled Distributed Systems*, Burrows, 2006. Describes sequencers, which are Chubby's fencing tokens.
+3. [How to do distributed locking](https://martin.kleppmann.com/2016/02/08/how-to-do-distributed-locking.html), Kleppmann, 2016. The pause problem and fencing tokens, step by step.

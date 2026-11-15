@@ -21,39 +21,49 @@ You don't need to know any of these algorithms to read this page. The goal is th
 
 Machines crash and restart, and messages get lost, delayed or duplicated, but nobody lies. Can a group still agree on a value, and never contradict itself, no matter how badly timed the failures are?
 
-1. **The Echo File System**: In the late 1980s, researchers at Digital Equipment Corporation’s (DEC) Systems Research Center were building a fault-tolerant file system called Echo. They claimed they had designed a protocol that could maintain consistency through arbitrary non-Byzantine failures (Crash Faults or Fail-Stop/Fail-Recovery failures) as long as a majority of processors were working. Leslie Lamport set out to prove them wrong by showing that reaching consensus reliably in an asynchronous network was fundamentally impossible—only to accidentally discover a protocol that made it possible instead.   
-Microsoft
-2. **The Fictional Greek Island**: Amused (and perhaps slightly frustrated) by how difficult it was for other engineers to understand distributed consensus, Lamport wrote the algorithm up as an elaborate archaeological spoof. He framed it as a historical paper detailing the parliamentary system of an imaginary Greek island called Paxos, where legislators wandered in and out of the chamber ("peripatetic propensity") and communicated only via unreliable messengers.   
-Wikipedia
-3. **The Publication Delay**: He submitted the paper in 1990. Reviewers found the Greek legislative allegory baffling and refused to accept it unless he removed the fiction. Lamport refused to change the story, so the paper sat in limbo for years, eventually getting published as "The Part-Time Parliament" in 1998 (though it had circulated internally as a DEC report since 1989).   
-Microsoft
+1. **The Echo File System**: In the late 1980s, researchers at Digital Equipment Corporation’s (DEC) Systems Research Center were building a fault-tolerant file system called Echo. They claimed they had designed a protocol that could maintain consistency through arbitrary non-Byzantine failures (Crash Faults or Fail-Stop/Fail-Recovery failures) as long as a majority of processors were working. Leslie Lamport set out to prove them wrong by showing that reaching consensus reliably in an asynchronous network was fundamentally impossible—only to accidentally discover a protocol that made it possible instead.
+2. **The Fictional Greek Island**: Amused (and perhaps slightly frustrated) by how difficult it was for other engineers to understand distributed consensus, Lamport wrote the algorithm up as an elaborate archaeological spoof. He framed it as a historical paper detailing the parliamentary system of an imaginary Greek island called Paxos, where legislators wandered in and out of the chamber ("peripatetic propensity") and communicated only via unreliable messengers.
+3. **The Publication Delay**: He submitted the paper in 1990. Reviewers found the Greek legislative allegory baffling and refused to accept it unless he removed the fiction. Lamport refused to change the story, so the paper sat in limbo for years, eventually getting published as "The Part-Time Parliament" in 1998 (though it had circulated internally as a DEC report since 1989).
 4. **Paxos Made Simple**: Because people still struggled to cut through the Greek island metaphor to understand the raw computer science, Lamport finally yielded years later and published "Paxos Made Simple" in 2001, stripping away all the legislators, ledgers, and island lore to explain the algorithm plainly.
-
 
 ### The idea in plain words
 
 1. **The Core Idea: Agreement Without a Boss**
-   Imagine a group of friends trying to decide on a restaurant for dinner. Anyone can suggest a place, but they need a foolproof way to make sure everyone agrees on one choice, even if people are texting at different times, losing cell service, or trying to change the plan. That is what Paxos solves.
-2. The Two Phases
-   Every time Paxos wants to agree on a single decision (or "slot" in a log), it uses a two-step process:
-   **Step 1: The "Prepare" Phase (Checking the Room)**
-   A proposer steps up and shouts: "I want to pitch an idea using Proposal #5. Everyone promise me you won't accept any older proposals, and tell me if you already agreed to anything else!"
-   If a majority of people agree to this, the proposer has successfully taken control.
-   **Step 2: The "Accept" Phase (Locking It In)**
-   The Golden Rule: If anyone in that majority tells the proposer, "Hey, we already accepted Proposal #3 earlier," the proposer is not allowed to push its own new idea anymore. It must take Proposal #3 and push that instead.
-   If nobody accepted anything yet, the proposer can push its own idea. Once a majority votes "Yes" to accept it, the decision is officially locked in (chosen).
-   
-3. **Why Does It Never Fail? (The Magic of Majorities)**
-   The safety of Paxos relies entirely on math and overlapping groups:
-   Overlapping Majorities: If you have 5 people, a majority is 3. Any two groups of 3 people will always share at least one overlapping person.
-   Because of this overlap, any new proposer is guaranteed to bump into someone who already knows what the previous proposer did. That shared person acts as a bridge, ensuring a new leader can never accidentally overwrite a decision that was already made.
-   
-4. Moving From One Decision to a Whole Log (Multi-Paxos)
-   Basic Paxos only solves one decision at a time. Doing Phase 1 (the Prepare step) for every single transaction would be painfully slow.
 
-### Multi-Paxos fixes this by electing a stable leader:
-   The leader runs Phase 1 just once to take charge.
-   After that, for every new piece of data or transaction that comes in, it skips Phase 1 entirely and instantly jumps to Phase 2 (a quick single round-trip vote).
+    Imagine a group of friends trying to decide on a restaurant for dinner. Anyone can suggest a place, but they need a foolproof way to make sure everyone agrees on one choice, even if people are texting at different times, losing cell service, or trying to change the plan. That is what Paxos solves.
+
+2. **The Two Phases**
+
+    Every time Paxos wants to agree on a single decision (or "slot" in a log), it uses a two-step process:
+
+    **Step 1: The "Prepare" Phase (Checking the Room)**
+
+    A proposer steps up and shouts: "I want to pitch an idea using Proposal #5. Everyone promise me you won't accept any older proposals, and tell me if you already agreed to anything else!"
+
+    If a majority of people agree to this, the proposer has successfully taken control.
+
+    **Step 2: The "Accept" Phase (Locking It In)**
+
+    The Golden Rule: If anyone in that majority tells the proposer, "Hey, we already accepted Proposal #3 earlier," the proposer is not allowed to push its own new idea anymore. It must take Proposal #3 and push that instead.
+
+    If nobody accepted anything yet, the proposer can push its own idea. Once a majority votes "Yes" to accept it, the decision is officially locked in (chosen).
+
+3. **Why Does It Never Fail? (The Magic of Majorities)**
+
+    The safety of Paxos relies entirely on math and overlapping groups:
+
+    Overlapping Majorities: If you have 5 people, a majority is 3. Any two groups of 3 people will always share at least one overlapping person.
+
+    Because of this overlap, any new proposer is guaranteed to bump into someone who already knows what the previous proposer did. That shared person acts as a bridge, ensuring a new leader can never accidentally overwrite a decision that was already made.
+
+4. **Moving From One Decision to a Whole Log (Multi-Paxos)**
+
+    Basic Paxos only solves one decision at a time. Doing Phase 1 (the Prepare step) for every single transaction would be painfully slow.
+
+    Multi-Paxos fixes this by electing a stable leader:
+
+    - The leader runs Phase 1 just once to take charge.
+    - After that, for every new piece of data or transaction that comes in, it skips Phase 1 entirely and instantly jumps to Phase 2 (a quick single round-trip vote).
 
 ### What it got right
 
@@ -196,7 +206,7 @@ flowchart LR
 
 ## Three things to remember
 
-1. **Every protocol makes the same deal.** FLP says agreement can't be guaranteed to finish, so every protocol is always safe and only makes progress when the network cooperates.
+1. **Every protocol makes the same deal.** A 1985 proof known as FLP (Fischer, Lynch and Paterson) says agreement can't be guaranteed to finish, so every protocol is always safe and only makes progress when the network cooperates.
 2. **The big fork is crash versus lies.** If your machines are trusted, use a crash-tolerant protocol: `2f + 1` machines and majorities. If they aren't, you need Byzantine tolerance: `3f + 1` machines and two-thirds quorums, at a much higher cost.
 3. **Raft's contribution was understanding, not safety.** It made the ideas Paxos and VR proved buildable and teachable. That's why it's the one you'll meet most often.
 
