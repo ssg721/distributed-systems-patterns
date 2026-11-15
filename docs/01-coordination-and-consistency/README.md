@@ -24,6 +24,6 @@ Consensus comes first because almost everything else either relies on it (leases
 
 ## Leases and fencing tokens
 
-1. [How leases and fencing evolved](02-leases-and-fencing/01-evolution.md): from plain locks to leases, STONITH, Chubby's sequencers and fencing tokens, and why each step was needed.
+1. [How leases and fencing evolved](02-leases-and-fencing/01-evolution.md): from plain locks to leases, STONITH and fencing tokens, and why each step was needed.
 2. Why leases and fencing tokens? A story *(coming next)*
 3. Leases and fencing in real systems *(coming next)*

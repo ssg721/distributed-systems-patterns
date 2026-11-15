@@ -228,7 +228,7 @@ How can many people edit the same document at once, even offline, and still end 
 
     ---
 
-    From plain locks to leases, STONITH, Chubby's sequencers and fencing tokens: which failure each step fixed, and which one it left behind.
+    From plain locks to leases, STONITH and fencing tokens: which failure each step fixed.
 
     [:lucide-arrow-right: Read the history](01-coordination-and-consistency/02-leases-and-fencing/01-evolution.md)
 
